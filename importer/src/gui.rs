@@ -214,8 +214,10 @@ impl App {
                 }
             }
         });
-        ui.add_space(8.0);
+    }
 
+    /// Progress and outcome of the import, kept below the scrolling content so it is always visible.
+    fn status_panel(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         if let Some(job) = &self.job {
             let (step, done) = job.status.lock().unwrap().clone();
             ui.add(egui::ProgressBar::new(done).text(step));
@@ -377,6 +379,13 @@ impl App {
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        if self.job.is_some() || self.result.is_some() {
+            egui::Panel::bottom("status").show(ui, |ui| {
+                ui.add_space(6.0);
+                self.status_panel(ui, &ctx);
+                ui.add_space(4.0);
+            });
+        }
         egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.main_panel(ui, &ctx));
         });
@@ -386,7 +395,7 @@ impl eframe::App for App {
 pub fn run() -> Result<(), String> {
     #[allow(unused_mut)]
     let mut options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([712.0, 560.0]).with_min_inner_size([520.0, 300.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([712.0, 600.0]).with_min_inner_size([520.0, 300.0]),
         ..Default::default()
     };
     // Probing the Vulkan/OpenGL drivers crashed on a Windows 10 PC; DirectX 12 is always there. WGPU_BACKEND still overrides.
