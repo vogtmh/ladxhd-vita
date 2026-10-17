@@ -1,0 +1,335 @@
+Vita render path. The PC renderer draws the world through up to three full-screen render targets, copies it into
+the main target, copies that into the screen and blurs it five times for the UI. On the Vita GPU every target
+switch loads and stores the whole surface (about 2 ms at 960x544), so that pipeline alone exceeded the frame.
+
+Here every offscreen pass runs first and small (shadows and light map at a quarter resolution, the blurred map
+edges as before), then the frame is drawn in one go straight to the screen: world, light multiplied on top,
+fog, transitions and UI. The UI boxes use the game's own "blur disabled" look.
+
+The PC pipeline (DrawGameRT) remains for what needs the finished world as a texture: the wobble transition,
+the shock effect, the pixel grid and colour correction.
+
+FILE Game1.cs
+FIND
+        private bool _directPresent;
+REPLACE
+        private bool _directPresent;
+
+        // The frame is drawn straight to the screen instead of through MainRenderTarget.
+        public static bool ScreenDirect;
+
+        public static void VitaBackBufferAsTarget(bool on) { }
+END
+
+FILE Game1.cs
+FIND
+            Graphics.GraphicsDevice.SetRenderTarget(MainRenderTarget);
+            Graphics.GraphicsDevice.Clear(Color.CadetBlue);
+            ScreenManager.Draw(SpriteBatch);
+
+            // Detect if the user disabled blur and pass to the shader.
+            var blurDisabled = GameSettings.DisableUiBlur;
+            var blurParameter = blurDisabled ? 0f : 1f;
+
+            // Blur the screen if it's not disabled.
+            if (!blurDisabled)
+                BlurImage();
+
+            Graphics.GraphicsDevice.SetRenderTarget(null);
+            Graphics.GraphicsDevice.Clear(Color.Black);
+REPLACE
+            var pixelGridWanted = !EditorOpen && GameSettings.PixelSnapping && GameSettings.PixelGrid;
+            ScreenDirect = _directPresent && !pixelGridWanted &&
+                           (GameManager == null || !_finishedLoading || GameManager.CanDrawToScreen());
+            VitaBackBufferAsTarget(ScreenDirect);
+
+            Graphics.GraphicsDevice.SetRenderTarget(ScreenDirect ? null : MainRenderTarget);
+            Graphics.GraphicsDevice.Clear(Color.CadetBlue);
+            ScreenManager.Draw(SpriteBatch);
+
+            // The blur needs the finished frame as a texture: five more GPU passes per frame.
+            var blurDisabled = true;
+            var blurParameter = 0f;
+
+            // Binding the screen again would start a new GPU pass (and discard what is already on it).
+            if (!ScreenDirect)
+            {
+                Graphics.GraphicsDevice.SetRenderTarget(null);
+                Graphics.GraphicsDevice.Clear(Color.Black);
+            }
+END
+
+FILE Game1.cs
+FIND
+            Graphics.GraphicsDevice.SetRenderTarget(_directPresent ? null : _finalRenderTarget);
+            Graphics.GraphicsDevice.Clear(Color.Black);
+REPLACE
+            if (!ScreenDirect)
+            {
+                Graphics.GraphicsDevice.SetRenderTarget(_directPresent ? null : _finalRenderTarget);
+                Graphics.GraphicsDevice.Clear(Color.Black);
+            }
+END
+
+FILE Game1.cs
+FIND
+            SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
+            SpriteBatch.Draw(MainRenderTarget, new Rectangle(0, 0, finalWidth, finalHeight), Color.White);
+            SpriteBatch.End();
+REPLACE
+            if (!ScreenDirect)
+            {
+                SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
+                SpriteBatch.Draw(MainRenderTarget, new Rectangle(0, 0, finalWidth, finalHeight), Color.White);
+                SpriteBatch.End();
+            }
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+        private bool _wobbleTransitionIn;
+REPLACE
+        private bool _wobbleTransitionIn;
+
+        public bool WobbleActive => _transitionObject.WobbleTransition;
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+        public void DrawGame(SpriteBatch spriteBatch)
+        {
+REPLACE
+        private RenderTarget2D _lightMap;
+
+        // dst * src: multiplies the finished world by the light map.
+        private static readonly BlendState MultiplyBlend = new BlendState
+        {
+            ColorSourceBlend = Blend.DestinationColor,
+            ColorDestinationBlend = Blend.Zero,
+            AlphaSourceBlend = Blend.Zero,
+            AlphaDestinationBlend = Blend.One
+        };
+
+        public bool CanDrawToScreen()
+        {
+            var main = Game1.MainRenderTarget;
+            if (UseShockEffect || main == null || MapManager?.CurrentMap == null)
+                return false;
+            if (CurrentRenderWidth != main.Width || CurrentRenderHeight != main.Height)
+                return false;
+            return !((MapTransitionSystem)GameSystems[typeof(MapTransitionSystem)]).WobbleActive;
+        }
+
+        public void DrawGame(SpriteBatch spriteBatch)
+        {
+            if (!Game1.ScreenDirect)
+            {
+                DrawGameRT(spriteBatch);
+                return;
+            }
+            var device = Game1.Graphics.GraphicsDevice;
+
+            if (GameSettings.EnableShadows && MapManager.CurrentMap.UseShadows)
+            {
+                /// RT:CRASH BYPASS
+                if (_shadowRenderTarget == null) return;
+
+                // Same as the PC: rendering at half resolution and blurring keeps moving shadows from flickering.
+                RenderShadows(spriteBatch);
+
+                Resources.BlurEffectH.Parameters["pixelX"].SetValue(1.0f / _shadowRenderTarget.Width);
+                Resources.BlurEffectV.Parameters["pixelY"].SetValue(1.0f / _shadowRenderTarget.Height);
+                Resources.BlurEffectH.Parameters["mult0"].SetValue(0.35f);
+                Resources.BlurEffectH.Parameters["mult1"].SetValue(0.15f);
+                Resources.BlurEffectV.Parameters["mult0"].SetValue(0.35f);
+                Resources.BlurEffectV.Parameters["mult1"].SetValue(0.15f);
+
+                device.SetRenderTarget(_shadowRenderTargetBlur);
+                device.Clear(Color.Transparent);
+                spriteBatch.Begin(SpriteSortMode.Immediate, null, SamplerState.AnisotropicClamp, null, null, Resources.BlurEffectV, null);
+                spriteBatch.Draw(_shadowRenderTarget, Vector2.Zero, Color.White);
+                spriteBatch.End();
+
+                device.SetRenderTarget(_shadowRenderTarget);
+                device.Clear(Color.Transparent);
+                spriteBatch.Begin(SpriteSortMode.Immediate, null, SamplerState.AnisotropicClamp, null, null, Resources.BlurEffectH, null);
+                spriteBatch.Draw(_shadowRenderTargetBlur, Vector2.Zero, Color.White);
+                spriteBatch.End();
+
+                MapManager.CurrentMap.Objects.ShadowTexture = _shadowRenderTarget;
+            }
+
+            MapManager.PrepareBlur(spriteBatch);
+
+            var useLight = MapManager.CurrentMap.UseLight;
+            if (useLight)
+            {
+                var lightWidth = Math.Max(1, CurrentRenderWidth / 4);
+                var lightHeight = Math.Max(1, CurrentRenderHeight / 4);
+                if (_lightMap == null || _lightMap.Width != lightWidth || _lightMap.Height != lightHeight)
+                {
+                    _lightMap?.Dispose();
+                    _lightMap = new RenderTarget2D(device, lightWidth, lightHeight);
+                }
+                device.SetRenderTarget(_lightMap);
+                MapManager.DrawLight(spriteBatch, (float)lightWidth / CurrentRenderWidth);
+                _lightRenderTarget = _lightMap;
+            }
+
+            device.SetRenderTarget(null);
+            device.Clear(Color.Black);
+
+            // draw the map
+            MapManager.Draw(spriteBatch);
+
+            var screen = new Rectangle(0, 0, CurrentRenderWidth, CurrentRenderHeight);
+            if (useLight)
+            {
+                // Same as the light shader: lerp(world * light, white, lightState).
+                var lightState = MapManager.CurrentMap.LightState;
+                spriteBatch.Begin(SpriteSortMode.Deferred, MultiplyBlend, SamplerState.LinearClamp);
+                spriteBatch.Draw(_lightMap, screen, Color.White * (1 - lightState));
+                spriteBatch.End();
+
+                if (lightState > 0)
+                {
+                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp);
+                    spriteBatch.Draw(Resources.SprWhite, screen, new Color(lightState, lightState, lightState));
+                    spriteBatch.End();
+                }
+            }
+
+            // Draw the fog over the finished world render.
+            MapDiscoveryFog.Draw(spriteBatch);
+
+            foreach (var gameSystem in GameSystems)
+                gameSystem.Value.Draw(spriteBatch);
+
+            if (useLight && DrawPlayerOnTopPercentage > 0)
+            {
+                Resources.LightShader.Parameters["sprLight"].SetValue(_lightMap);
+                Resources.LightShader.Parameters["lightState"].SetValue(DrawPlayerOnTopPercentage);
+                Resources.LightShader.Parameters["mode"].SetValue(1);
+                // The shader divides the screen position by these, and the light map is smaller than the screen.
+                Resources.LightShader.Parameters["width"].SetValue(CurrentRenderWidth);
+                Resources.LightShader.Parameters["height"].SetValue(CurrentRenderHeight);
+
+                spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp, null, null, Resources.LightShader, MapManager.Camera.TransformMatrix);
+                Link.DrawTransition(spriteBatch);
+                spriteBatch.End();
+            }
+            else if (DrawPlayerOnTopPercentage > 0)
+            {
+                spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp, null, null, null, MapManager.Camera.TransformMatrix);
+                Link.DrawTransition(spriteBatch);
+                spriteBatch.End();
+            }
+
+            // debug stuff
+            spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp);
+            MapManager.Camera.Draw(spriteBatch);
+            spriteBatch.End();
+        }
+
+        private void DrawGameRT(SpriteBatch spriteBatch)
+        {
+END
+
+FILE InGame/Map/MapManager.cs
+FIND
+            // draw the blured part of the tile map
+            DrawBlur(spriteBatch, Game1.GameManager.TempRT2, Game1.GameManager.TempRT0, Game1.GameManager.TempRT1);
+REPLACE
+            // draw the blured part of the tile map
+            if (_blurPrepared)
+                DrawBlur(spriteBatch, Game1.GameManager.TempRT2, Game1.GameManager.TempRT0, Game1.GameManager.TempRT1, 2);
+            else
+                DrawBlur(spriteBatch, Game1.GameManager.TempRT2, Game1.GameManager.TempRT0, Game1.GameManager.TempRT1);
+            _blurPrepared = false;
+END
+
+FILE InGame/Map/MapManager.cs
+FIND
+        private void DrawBlur(SpriteBatch spriteBatch, RenderTarget2D blurRT0, RenderTarget2D blurRT1, RenderTarget2D blurRT2)
+        {
+REPLACE
+        private bool _blurPrepared;
+        private Vector2 _blurMatrixPosition;
+
+        // Renders the blur passes before the screen is bound; Draw then only composites the result.
+        public void PrepareBlur(SpriteBatch spriteBatch)
+        {
+            _blurPrepared = false;
+            if (Game1.GameManager.UseShockEffect)
+                return;
+            CurrentMap.Objects.UpdateViewPort();
+            DrawBlur(spriteBatch, Game1.GameManager.TempRT2, Game1.GameManager.TempRT0, Game1.GameManager.TempRT1, 1);
+        }
+
+        // stage 0: passes and composite, 1: passes only, 2: composite of the prepared passes
+        private void DrawBlur(SpriteBatch spriteBatch, RenderTarget2D blurRT0, RenderTarget2D blurRT1, RenderTarget2D blurRT2, int stage = 0)
+        {
+END
+
+FILE InGame/Map/MapManager.cs
+FIND
+                var matrixPosition = Vector2.Zero;
+REPLACE
+                var matrixPosition = _blurMatrixPosition;
+                if (stage != 2)
+                {
+                matrixPosition = Vector2.Zero;
+END
+
+FILE InGame/Map/MapManager.cs
+FIND
+                // Restore the active render target to your main RT
+                Game1.GameManager.SetActiveRenderTarget();
+REPLACE
+                _blurMatrixPosition = matrixPosition;
+                if (stage == 1)
+                {
+                    _blurPrepared = true;
+                    return;
+                }
+
+                // Restore the active render target to your main RT
+                Game1.GameManager.SetActiveRenderTarget();
+                }
+END
+
+FILE InGame/Map/MapManager.cs
+FIND
+        public void DrawLight(SpriteBatch spriteBatch)
+        {
+REPLACE
+        // Transform for light drawing; scaled down when the light map is smaller than the render size.
+        public static Matrix LightMatrix;
+
+        public void DrawLight(SpriteBatch spriteBatch, float scale = 1)
+        {
+            LightMatrix = scale == 1 ? Camera.TransformMatrix : Camera.TransformMatrix * Matrix.CreateScale(scale, scale, 1);
+END
+
+FILE InGame/Map/MapManager.cs
+FIND
+            spriteBatch.Begin(SpriteSortMode.Deferred, LightBlendState, sampler, null, null, null, Camera.TransformMatrix);
+REPLACE
+            spriteBatch.Begin(SpriteSortMode.Deferred, LightBlendState, sampler, null, null, null, LightMatrix);
+END
+
+FILE InGame/GameObjects/Dungeon/ObjEggTeleporter.cs
+FIND
+            spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp, null, null, Resources.LightFadeShader, MapManager.Camera.TransformMatrix);
+REPLACE
+            spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp, null, null, Resources.LightFadeShader, MapManager.LightMatrix);
+END
+
+FILE InGame/GameObjects/Dungeon/ObjEggTeleporter.cs
+FIND
+            spriteBatch.Begin(SpriteSortMode.Deferred, MapManager.LightBlendState, MapManager.Camera.Scale >= 1 ? SamplerState.PointWrap : SamplerState.AnisotropicWrap, null, null, null, MapManager.Camera.TransformMatrix);
+        }
+REPLACE
+            spriteBatch.Begin(SpriteSortMode.Deferred, MapManager.LightBlendState, MapManager.Camera.Scale >= 1 ? SamplerState.PointWrap : SamplerState.AnisotropicWrap, null, null, null, MapManager.LightMatrix);
+        }
+END

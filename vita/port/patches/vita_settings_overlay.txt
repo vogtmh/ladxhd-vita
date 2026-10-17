@@ -1,0 +1,96 @@
+Vita: the video settings get a "Performance Overlay" toggle (off by default, saved with the settings) in place of
+"Disable UI Blur", which does nothing on the Vita because the render path never blurs the UI. Select+L+R still
+toggles the overlay without changing the setting. The language files have no text for it, so it falls back to
+built-in English strings.
+
+FILE InGame/Things/GameSettings.cs
+FIND
+        public static bool    EpilepsySafe     =  false;
+REPLACE
+        public static bool    EpilepsySafe     =  false;
+        public static bool    PerfOverlay      =  false;
+END
+
+FILE InGame/Things/GameSettings.cs
+FIND
+            EpilepsySafe     =  false;
+REPLACE
+            EpilepsySafe     =  false;
+            PerfOverlay      =  false;
+            Game1.VitaPerfOverlay(false);
+END
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+            GameSettings.EpilepsySafe = saveManager.GetBool("EpilepsySafe", GameSettings.EpilepsySafe);
+REPLACE
+            GameSettings.EpilepsySafe = saveManager.GetBool("EpilepsySafe", GameSettings.EpilepsySafe);
+            GameSettings.PerfOverlay = saveManager.GetBool("PerfOverlay", GameSettings.PerfOverlay);
+            Game1.VitaPerfOverlay(GameSettings.PerfOverlay);
+END
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+            saveManager.SetBool("EpilepsySafe", GameSettings.EpilepsySafe);
+REPLACE
+            saveManager.SetBool("EpilepsySafe", GameSettings.EpilepsySafe);
+            saveManager.SetBool("PerfOverlay", GameSettings.PerfOverlay);
+END
+
+FILE InGame/Pages/Settings/VideoSettingsPage.cs
+FIND
+            // Toggle: Disable UI Blur
+            _toggleDisableBlur = InterfaceToggle.GetToggleButton(
+                new Point(buttonWidth, buttonHeight), new Point(5, 2),
+                "settings_video_disableblur", GameSettings.DisableUiBlur,
+                newState => { GameSettings.DisableUiBlur = newState; });
+            _contentLayout.AddElement(_toggleDisableBlur);
+            _tooltips.Add("tooltip_video_disableblur");
+REPLACE
+            // Kept off the page (SetNoBlurEffects still updates it); the Vita never blurs the UI.
+            _toggleDisableBlur = InterfaceToggle.GetToggleButton(
+                new Point(buttonWidth, buttonHeight), new Point(5, 2),
+                "settings_video_disableblur", GameSettings.DisableUiBlur,
+                newState => { GameSettings.DisableUiBlur = newState; });
+
+            // Toggle: Performance Overlay
+            var togglePerfOverlay = InterfaceToggle.GetToggleButton(
+                new Point(buttonWidth, buttonHeight), new Point(5, 2),
+                "settings_video_perfoverlay", GameSettings.PerfOverlay,
+                newState => { GameSettings.PerfOverlay = newState; Game1.VitaPerfOverlay(newState); });
+            _contentLayout.AddElement(togglePerfOverlay);
+            _tooltips.Add("tooltip_video_perfoverlay");
+END
+
+FILE Game1.cs
+FIND
+        public static void VitaBackBufferAsTarget(bool on) { }
+REPLACE
+        public static void VitaBackBufferAsTarget(bool on) { }
+
+        public static void VitaPerfOverlay(bool on) { }
+END
+
+FILE InGame/Things/Language.cs
+FIND
+            // Return the default string if it's not in the dictionary.
+REPLACE
+            if (VitaStrings.TryGetValue(strKey, out value))
+                return value;
+
+            // Return the default string if it's not in the dictionary.
+END
+
+FILE InGame/Things/Language.cs
+FIND
+        public string GetString(string strKey, string defaultString, bool skipReplaceTag = false, bool forceEnglish = false)
+REPLACE
+        // Texts for Vita-only settings, which the language files do not have.
+        private static readonly Dictionary<string, string> VitaStrings = new Dictionary<string, string>
+        {
+            { "settings_video_perfoverlay", "Performance Overlay" },
+            { "tooltip_video_perfoverlay", "Shows the frame rate and how long each part of a frame takes in the top left corner. Select+L+R toggles it at any time." }
+        };
+
+        public string GetString(string strKey, string defaultString, bool skipReplaceTag = false, bool forceEnglish = false)
+END

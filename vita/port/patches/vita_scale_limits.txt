@@ -1,0 +1,42 @@
+Vita: game scale limited to 1x-4x plus auto. Zooming out below 1x multiplies the visible world (and GPU work),
+and the PC limit of 20x creates render targets the Vita cannot handle. Saved settings outside the range are
+clamped on load, so a previously saved bad value cannot crash the game again.
+
+FILE Game1.cs
+FIND
+            MaxGameScale = max_game_scale;
+            PixelGridAlpha = pixel_grid_alpha;
+            GameSettings.GameScale = max_game_scale + 1;
+REPLACE
+            MaxGameScale = Math.Min(max_game_scale, 4);
+            PixelGridAlpha = pixel_grid_alpha;
+            GameSettings.GameScale = MaxGameScale + 1;
+END
+
+FILE InGame/Pages/Settings/VideoSettingsPage.cs
+FIND
+                buttonWidth, sliderHeight, new Point(1, 2), -3, Game1.MaxGameScale + 1, 1, GameSettings.GameScale, 
+REPLACE
+                buttonWidth, sliderHeight, new Point(1, 2), 1, Game1.MaxGameScale + 1, 1, GameSettings.GameScale, 
+END
+
+FILE InGame/Pages/Settings/VideoSettingsPage.cs
+FIND
+            _sliderGameScale.CurrentStep = GameSettings.GameScale + 3;
+REPLACE
+            _sliderGameScale.CurrentStep = GameSettings.GameScale - 1;
+END
+
+FILE InGame/Overlay/OverlayManager.cs
+FIND
+            if (newScale >= -3 && newScale < maxScale)
+REPLACE
+            if (newScale >= 1 && newScale < maxScale)
+END
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+            GameSettings.GameScale = saveManager.GetInt("GameScale", GameSettings.GameScale);
+REPLACE
+            GameSettings.GameScale = MathHelper.Clamp(saveManager.GetInt("GameScale", GameSettings.GameScale), 1, Game1.MaxGameScale + 1);
+END

@@ -1,0 +1,9 @@
+Vita startup: Chinese is not supported (tools/make_pak.py leaves its files out of the pack), so its two bitmap
+fonts (12 MB of texture data) are not loaded. Chinese can't be selected, so Resources.ChinaFont is never used.
+
+FILE InGame/Graphics/Resources.cs
+FIND
+            smallFont_chn = content.Load<BitmapFont>("Fonts/smallFont_chn");
+            smallFont_chn_redux = content.Load<BitmapFont>("Fonts/smallFont_chn_redux");
+REPLACE
+END

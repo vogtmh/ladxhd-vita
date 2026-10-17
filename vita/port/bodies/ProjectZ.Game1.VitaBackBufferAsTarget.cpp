@@ -1,0 +1,3 @@
+{
+    ::fw::gfx::setBackBufferAsTarget(on);
+}

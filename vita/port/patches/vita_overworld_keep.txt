@@ -1,0 +1,497 @@
+Vita: leaving a house rebuilt the whole overworld (about 17,000 objects, 0.8-1.6 s on the Vita, plus a collection
+afterwards). The overworld now stays alive while the player is in a house, a cave or another small map that is
+not a dungeon. On return only the static terrain objects are kept (colliders, water, animated tiles, sprites,
+fences, ... about 16,000); every other object of the map file is created again exactly as a fresh load would
+(doors, spawners, NPCs, items, enemies), and so are cut bushes. Objects spawned at runtime are removed. A loaded
+save, or something destroyed that cannot be traced back to a map entry, rebuilds the overworld as before.
+
+FILE InGame/Map/Map.cs
+FIND
+        public void Reset()
+        {
+            IsOverworld = false;
+REPLACE
+        // Counts loads into this map instance, so a kept map that was loaded over is recognised.
+        public int VitaLoadCount;
+
+        public void Reset()
+        {
+            VitaLoadCount++;
+            IsOverworld = false;
+END
+
+FILE InGame/SaveLoad/SaveManager.cs
+FIND
+        public bool LoadFile(string filePath)
+        {
+REPLACE
+        // Counts loaded saves: a kept overworld is not reused across a save load.
+        public static int VitaLoadedSaves;
+
+        public bool LoadFile(string filePath)
+        {
+            VitaLoadedSaves++;
+END
+
+FILE InGame/SaveLoad/SaveLoadMap.cs
+FIND
+        public static void LoadMapFile(string fileName, Map.Map map)
+        {
+            if (_mapCache.TryGetValue(fileName, out var cachedMap))
+REPLACE
+        // A fresh copy of an object entry as it is in the map file, or null if the map is not cached.
+        public static GameObjectItem VitaPristineItem(string fileName, int index, bool listB)
+        {
+            if (fileName == null || !_mapCache.TryGetValue(fileName, out var cached))
+                return null;
+            var items = listB ? cached.ObjectsB : cached.Objects;
+            if (index < 0 || index >= items.Length)
+                return null;
+            return new GameObjectItem(items[index].Index, CloneParameter(items[index].Parameter));
+        }
+
+        public static void LoadMapFile(string fileName, Map.Map map)
+        {
+            if (_mapCache.TryGetValue(fileName, out var cachedMap))
+END
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+            foreach (var gameObj in ObjectList)
+            {
+                var gameObject = GetGameObject(Owner, gameObj.Index, gameObj.Parameter);
+                AddObjectToMap(gameObject, false);
+            }
+
+            foreach (var gameObj in ObjectListB)
+            {
+                var gameObject = GetGameObject(Owner, gameObj.Index, gameObj.Parameter);
+                AddObjectToMap(gameObject, true);
+            }
+REPLACE
+            // Large maps remember which object came from which map entry, so they can be reset instead of rebuilt.
+            VitaInitialObjects = null;
+            VitaItemObjects = null;
+            VitaChildren = null;
+            _vitaOwnerOf = null;
+            if (ObjectList.Count + ObjectListB.Count >= VitaKeepMinObjects)
+            {
+                VitaItemObjects = new List<GameObject>(ObjectList.Count + ObjectListB.Count);
+                VitaChildren = new Dictionary<int, List<GameObject>>();
+                _vitaOwnerOf = new Dictionary<GameObject, int>();
+            }
+
+            foreach (var gameObj in ObjectList)
+            {
+                var spawnedBefore = SpawnObjects.Count;
+                var gameObject = GetGameObject(Owner, gameObj.Index, gameObj.Parameter);
+                AddObjectToMap(gameObject, false);
+                VitaNoteItem(gameObject, spawnedBefore);
+            }
+
+            foreach (var gameObj in ObjectListB)
+            {
+                var spawnedBefore = SpawnObjects.Count;
+                var gameObject = GetGameObject(Owner, gameObj.Index, gameObj.Parameter);
+                AddObjectToMap(gameObject, true);
+                VitaNoteItem(gameObject, spawnedBefore);
+            }
+END
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+            foreach (var gameObject in _poolSpawnedObjects)
+                gameObject.Init();
+REPLACE
+            foreach (var gameObject in _poolSpawnedObjects)
+            {
+                var spawnedBefore = SpawnObjects.Count;
+                gameObject.Init();
+                VitaNoteChildren(gameObject, spawnedBefore);
+            }
+END
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+                for (var index = 0; index < SpawnObjects.Count; index++)
+                {
+                    if (!suppressInit)
+                        SpawnObjects[index].Init();
+                    AddObjectToMap(SpawnObjects[index], false);
+                }
+REPLACE
+                for (var index = 0; index < SpawnObjects.Count; index++)
+                {
+                    if (!suppressInit)
+                    {
+                        var spawnedBefore = SpawnObjects.Count;
+                        SpawnObjects[index].Init();
+                        VitaNoteChildren(SpawnObjects[index], spawnedBefore);
+                    }
+                    AddObjectToMap(SpawnObjects[index], false);
+                }
+END
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+            // done before and after init because ObjEnemyTrigger Init expects objects spawned in the constructor
+            AddSpawnedObjects();
+
+            _finishedLoading = true;
+        }
+REPLACE
+            // done before and after init because ObjEnemyTrigger Init expects objects spawned in the constructor
+            AddSpawnedObjects();
+
+            if (VitaItemObjects != null)
+                VitaInitialObjects = new HashSet<GameObject>(_poolSpawnedObjects);
+            _vitaOwnerOf = null;
+
+            _finishedLoading = true;
+        }
+
+        public const int VitaKeepMinObjects = 4000;
+        // Entry i of ObjectList (then ObjectListB) -> the object created from it.
+        public List<GameObject> VitaItemObjects;
+        // Entry i -> objects its object spawned while being created or initialised (directly or indirectly).
+        public Dictionary<int, List<GameObject>> VitaChildren;
+        // Every object present right after loading.
+        public HashSet<GameObject> VitaInitialObjects;
+        // Only set while objects are being created: object -> map entry it belongs to.
+        private Dictionary<GameObject, int> _vitaOwnerOf;
+
+        // Terrain whose constructors read no game state and whose objects never change while alive.
+        private static bool VitaIsStatic(GameObject gameObject) =>
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjCollider ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjColliderOneWay ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjAnimatedTile ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjWaterDeep ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjWater ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjQuicksand ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjUpperLevel ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjSprite ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjFence ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjSlow ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjJump ||
+            gameObject is ProjectZ.InGame.GameObjects.Things.ObjBush;
+
+        private void VitaNoteItem(GameObject gameObject, int spawnedBefore)
+        {
+            if (VitaItemObjects == null)
+                return;
+            var index = VitaItemObjects.Count;
+            VitaItemObjects.Add(gameObject);
+            if (gameObject != null)
+                _vitaOwnerOf[gameObject] = index;
+            VitaNoteSpawns(index, spawnedBefore);
+        }
+
+        private void VitaNoteChildren(GameObject parent, int spawnedBefore)
+        {
+            if (_vitaOwnerOf != null && parent != null && _vitaOwnerOf.TryGetValue(parent, out var index))
+                VitaNoteSpawns(index, spawnedBefore);
+        }
+
+        private void VitaNoteSpawns(int index, int spawnedBefore)
+        {
+            for (var i = spawnedBefore; i < SpawnObjects.Count; i++)
+            {
+                if (!VitaChildren.TryGetValue(index, out var children))
+                    VitaChildren[index] = children = new List<GameObject>();
+                children.Add(SpawnObjects[i]);
+                _vitaOwnerOf[SpawnObjects[i]] = index;
+            }
+        }
+
+        private static bool VitaGone(GameObject gameObject) => gameObject.IsDead || gameObject.Map == null;
+
+        // UpdateDeleteObjects for thousands of objects: its List.Remove calls on the 17,000-object lists would dominate.
+        private void VitaRemoveObjects(HashSet<GameObject> remove)
+        {
+            lock (_alwaysAnimateLock)
+                foreach (var gameObject in remove)
+                    _alwaysAnimateSet.Remove(gameObject);
+            VitaFilter(AlwaysAnimateObjectsMain, remove);
+            VitaFilter(_freezePersistObjects, remove);
+            VitaFilter(_poolSpawnedObjects, remove);
+
+            foreach (var gameObject in remove)
+            {
+                gameObject.Map = null;
+                if ((gameObject.ComponentsMask & DrawComponent.Mask) == DrawComponent.Mask)
+                {
+                    _drawPool.RemoveEntity(gameObject);
+                    _drawPoolB.RemoveEntity(gameObject);
+                }
+                _gameObjectPool.RemoveEntity(gameObject);
+            }
+
+            // Rebuilt in object order, which is the order AddObjectToMap registered them in.
+            _keyChangeListeners.Clear();
+            foreach (var gameObject in _poolSpawnedObjects)
+                if ((gameObject.ComponentsMask & KeyChangeListenerComponent.Mask) == KeyChangeListenerComponent.Mask)
+                    _keyChangeListeners.Add((gameObject.Components[KeyChangeListenerComponent.Index] as KeyChangeListenerComponent).KeyChangeFunction);
+        }
+
+        private static void VitaFilter(List<GameObject> list, HashSet<GameObject> remove)
+        {
+            var keep = new List<GameObject>(list.Count);
+            foreach (var gameObject in list)
+                if (!remove.Contains(gameObject))
+                    keep.Add(gameObject);
+            list.Clear();
+            list.AddRange(keep);
+        }
+
+        private Dictionary<GameObject, int> VitaChildOwners()
+        {
+            var owners = new Dictionary<GameObject, int>();
+            foreach (var entry in VitaChildren)
+                foreach (var child in entry.Value)
+                    owners[child] = entry.Key;
+            return owners;
+        }
+
+        // False when an object that is gone cannot be traced back to a map entry that could create it again.
+        public bool VitaCanReuse()
+        {
+            if (VitaInitialObjects == null || VitaItemObjects == null)
+                return false;
+            var fromMapFile = new HashSet<GameObject>(VitaItemObjects);
+            var childOwners = VitaChildOwners();
+            foreach (var gameObject in VitaInitialObjects)
+            {
+                if (VitaGone(gameObject) && !fromMapFile.Contains(gameObject) && !childOwners.ContainsKey(gameObject))
+                {
+                    System.Console.WriteLine("map reuse: rebuilding, destroyed " + gameObject.GetType().Name);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public void VitaResetForReuse()
+        {
+            SpawnObjects.Clear();
+            DeleteObjects.Clear();
+
+            // Entries that are not static terrain, or whose object (or a spawned object) is gone, are created again.
+            var recreateSet = new HashSet<int>();
+            for (var i = 0; i < VitaItemObjects.Count; i++)
+            {
+                var gameObject = VitaItemObjects[i];
+                if (gameObject == null || !VitaInitialObjects.Contains(gameObject) || !VitaIsStatic(gameObject) || VitaGone(gameObject))
+                    recreateSet.Add(i);
+            }
+            var childOwners = VitaChildOwners();
+            foreach (var gameObject in VitaInitialObjects)
+                if (VitaGone(gameObject) && childOwners.TryGetValue(gameObject, out var owner))
+                    recreateSet.Add(owner);
+            // In map file order, as LoadObjects creates them.
+            var recreate = new List<int>(recreateSet);
+            recreate.Sort();
+
+            // Runtime spawns do not exist in a freshly loaded map; the entries above are replaced completely.
+            var inPool = new HashSet<GameObject>(_poolSpawnedObjects);
+            var remove = new HashSet<GameObject>();
+            foreach (var gameObject in _poolSpawnedObjects)
+                if (!VitaInitialObjects.Contains(gameObject) || gameObject.IsDead)
+                    remove.Add(gameObject);
+            foreach (var i in recreate)
+            {
+                var item = VitaItemObjects[i];
+                if (item != null && inPool.Contains(item))
+                    remove.Add(item);
+                if (VitaChildren.TryGetValue(i, out var children))
+                    foreach (var child in children)
+                        if (inPool.Contains(child))
+                            remove.Add(child);
+            }
+            remove.Remove(MapManager.ObjLink);
+            VitaRemoveObjects(remove);
+
+            // Create them again in the same steps as LoadObjects.
+            _vitaOwnerOf = new Dictionary<GameObject, int>();
+            var firstNew = _poolSpawnedObjects.Count;
+            foreach (var i in recreate)
+            {
+                var isB = i >= ObjectList.Count;
+                var entry = ProjectZ.InGame.SaveLoad.SaveLoadMap.VitaPristineItem(Owner.MapFileName, isB ? i - ObjectList.Count : i, isB);
+                if (entry == null)
+                    continue;
+                if (VitaItemObjects[i] != null)
+                    VitaInitialObjects.Remove(VitaItemObjects[i]);
+                if (VitaChildren.TryGetValue(i, out var oldChildren))
+                {
+                    foreach (var child in oldChildren)
+                        VitaInitialObjects.Remove(child);
+                    VitaChildren.Remove(i);
+                }
+                var spawnedBefore = SpawnObjects.Count;
+                var gameObject = GetGameObject(Owner, entry.Index, entry.Parameter);
+                AddObjectToMap(gameObject, isB);
+                VitaItemObjects[i] = gameObject;
+                if (gameObject != null)
+                    _vitaOwnerOf[gameObject] = i;
+                VitaNoteSpawns(i, spawnedBefore);
+            }
+            AddSpawnedObjects(true);
+            UpdateKeyListeners();
+            for (var i = firstNew; i < _poolSpawnedObjects.Count; i++)
+            {
+                var spawnedBefore = SpawnObjects.Count;
+                _poolSpawnedObjects[i].Init();
+                VitaNoteChildren(_poolSpawnedObjects[i], spawnedBefore);
+            }
+            UpdateKeyListeners();
+            AddSpawnedObjects();
+            for (var i = firstNew; i < _poolSpawnedObjects.Count; i++)
+                VitaInitialObjects.Add(_poolSpawnedObjects[i]);
+            _vitaOwnerOf = null;
+
+            _resetPending = false;
+            _holeResetPending = false;
+            Owner.ResetHoleMap();
+            TriggerKeyChange();
+            System.Console.WriteLine("map reuse: removed " + remove.Count + ", recreated " + recreate.Count + " of " + VitaItemObjects.Count + " map entries");
+        }
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+                if (_deferredMapFile != null)
+                {
+                    var mapFile = _deferredMapFile;
+                    _deferredMapFile = null;
+                    // Makes room for the load; collections only run at these transition points.
+                    GC.TryStartNoGCRegion(48 * 1024 * 1024);
+                    ThreadLoading(mapFile);
+                }
+REPLACE
+                if (_deferredMapFile != null)
+                {
+                    var mapFile = _deferredMapFile;
+                    _deferredMapFile = null;
+                    if (VitaCanReuseKeptMap(mapFile))
+                    {
+                        // The reset allocates far less than a load (recreated doors, spawners, NPCs, ...).
+                        GC.TryStartNoGCRegion(24 * 1024 * 1024);
+                        _vitaReuse = true;
+                        _objectsLoadedInThread = true;
+                        _loadingException = null;
+                        _finishedLoading = true;
+                    }
+                    else
+                    {
+                        VitaDropKeptMap();
+                        // Makes room for the load; collections only run at these transition points.
+                        GC.TryStartNoGCRegion(48 * 1024 * 1024);
+                        ThreadLoading(mapFile);
+                    }
+                }
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+                    var previousMap = Game1.GameManager.MapManager.NextMap;
+                    if (previousMap != null && previousMap != Game1.GameManager.MapManager.CurrentMap)
+                    {
+                        previousMap.Objects.ReleaseObjects();
+                        previousMap.Objects = new ObjectManager(previousMap);
+                    }
+REPLACE
+                    var previousMap = Game1.GameManager.MapManager.NextMap;
+                    var keepPrevious = false;
+                    if (previousMap != null && previousMap != Game1.GameManager.MapManager.CurrentMap)
+                    {
+                        keepPrevious = VitaShouldKeep(previousMap, Game1.GameManager.MapManager.CurrentMap);
+                        if (keepPrevious)
+                        {
+                            _vitaKeptMap = previousMap;
+                            _vitaKeptLoadCount = previousMap.VitaLoadCount;
+                            _vitaKeptSaveCount = SaveManager.VitaLoadedSaves;
+                        }
+                        else
+                        {
+                            previousMap.Objects.ReleaseObjects();
+                            previousMap.Objects = new ObjectManager(previousMap);
+                        }
+                    }
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+                    GC.Collect(isLargeMap ? 0 : 1);
+REPLACE
+                    // With the overworld alive a collection takes about a second on the Vita, so going into a small map
+                    // or coming back only collects when the next load needs room (TryStartNoGCRegion).
+                    if (!keepPrevious && !_vitaJustReused)
+                        GC.Collect(isLargeMap ? 0 : 1);
+                    _vitaJustReused = false;
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+            // Getting the music to work correct with the map loading changes has been a nightmare. The
+REPLACE
+            if (_vitaReuse)
+            {
+                _vitaReuse = false;
+                _vitaJustReused = true;
+                _vitaKeptMap = null;
+                // As in LoadObjects above: objects created during the reset configure NextMap.
+                var restoreNextMap = mm.NextMap;
+                mm.NextMap = mm.CurrentMap;
+                try
+                {
+                    mm.CurrentMap.Objects.VitaResetForReuse();
+                }
+                finally
+                {
+                    mm.NextMap = restoreNextMap;
+                }
+            }
+
+            // Getting the music to work correct with the map loading changes has been a nightmare. The
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+        private bool _wobbleTransitionIn;
+REPLACE
+        private bool _wobbleTransitionIn;
+
+        // The overworld kept alive while the player is in a small map (house, cave, passage).
+        private Map.Map _vitaKeptMap;
+        private int _vitaKeptLoadCount;
+        private int _vitaKeptSaveCount;
+        private bool _vitaReuse;
+        private bool _vitaJustReused;
+
+        private static bool VitaShouldKeep(Map.Map previousMap, Map.Map newMap)
+        {
+            if (previousMap.Objects?.VitaInitialObjects == null || newMap.IsDungeon || newMap.IsCastle || newMap.IsEgg)
+                return false;
+            return newMap.Objects.ObjectList.Count + newMap.Objects.ObjectListB.Count < 2000;
+        }
+
+        private bool VitaCanReuseKeptMap(string mapFile)
+        {
+            var kept = _vitaKeptMap;
+            if (kept == null || _gameMapManager.NextMap != kept || kept.VitaLoadCount != _vitaKeptLoadCount ||
+                _vitaKeptSaveCount != SaveManager.VitaLoadedSaves || kept.MapName != mapFile)
+                return false;
+            return kept.Objects.VitaCanReuse();
+        }
+
+        private void VitaDropKeptMap()
+        {
+            var kept = _vitaKeptMap;
+            _vitaKeptMap = null;
+            // Only release the objects if the map still holds what was kept and is not in use.
+            if (kept == null || kept.VitaLoadCount != _vitaKeptLoadCount || kept == _gameMapManager.CurrentMap)
+                return;
+            kept.Objects.ReleaseObjects();
+            kept.Objects = new ObjectManager(kept);
+        }
+END

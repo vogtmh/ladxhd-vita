@@ -1,0 +1,26 @@
+Vita audio: the GBS emulator is pumped from the game loop (no real threads on this port), so keep 250 ms of music
+queued instead of 100 ms. Short stalls of the main thread then no longer starve the audio output. Volume is applied
+at the output, so fades are not delayed by the deeper queue. The whole queue is handed to the mixer: with only
+120 ms there, slow startup frames ran it dry over and over, which sounded like crackling.
+
+FILE GbsPlayer/GameBoyCPU.cs
+FIND
+            const int maxChunksPerUpdate = 3;
+REPLACE
+            // 3 chunks (30 ms) per update fall behind at 30 fps and never catch up after a stall.
+            const int maxChunksPerUpdate = 12;
+END
+
+FILE GbsPlayer/CDynamicEffectInstance.cs
+FIND
+        public void Pump(int maxBuffersPerFrame = 6, int maxPending = 12)
+REPLACE
+        public void Pump(int maxBuffersPerFrame = 25, int maxPending = 25)
+END
+
+FILE GbsPlayer/GameBoyCPU.cs
+FIND
+            while (!_gbSound.WasStopped && _gbSound.BufferedCount < 10 && chunks < maxChunksPerUpdate)
+REPLACE
+            while (!_gbSound.WasStopped && _gbSound.BufferedCount < 25 && chunks < maxChunksPerUpdate)
+END

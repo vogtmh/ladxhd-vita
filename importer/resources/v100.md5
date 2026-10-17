@@ -1,0 +1,904 @@
+d298d69f2771b80e799c7321d6f8cbe2 Content/Editor/delete.xnb
+32cf0b1f627b2463ee69d5f1ba19a68e Content/Editor/edit.xnb
+8388055ba126767c505f91f7fc3fe7b2 Content/Editor/eye_closed.xnb
+278caa12a4a1276e342c0268d4238c8f Content/Editor/eye_open.xnb
+75563f240c970c78ef23db015d35bf4c Content/Editor/select.xnb
+a8d65515ba207c4749e52b442471606e Content/Fonts/credits font.xnb
+904e361726eb7b159fead461082410bf Content/Fonts/credits header font.xnb
+05e4c04aedd4388ddf37e4665eb1494a Content/Fonts/editor font.xnb
+ef41fc7db1677bf2d62f9d5cbaf66faf Content/Fonts/editor mono font.xnb
+569c54ed8e2764c3af69265ec99c7540 Content/Fonts/editor small mono font.xnb
+745043401be099fb045d576d2d2396d4 Content/Fonts/headerFont.xnb
+49b972a15b7570201e51f817287fa5cb Content/Fonts/newHeaderFont.xnb
+33425da3faf67ed12c39dbf15f887a2d Content/Fonts/smallFont.xnb
+7f143f3f4b904e8ca069786e0c295e57 Content/Light/doorLight.xnb
+bc6bc467c6dcca77b4bc74a1873c7dfa Content/Light/dungeon.xnb
+431c4f4ba8698a8d1227cf22630347c1 Content/Light/light.xnb
+2d4dcc99e629d8b1ead5e30965deaf60 Content/Light/ligth room vertical.xnb
+609f2572a511cb9b2c9ae6a7c6e2a17e Content/Light/ligth room.xnb
+66994de227a3e7265a8ac2f4ff371791 Content/Light/shadow.xnb
+0045cfe9fce5f405ad8ac381af707e3c Content/Menu/copyIcon.xnb
+8638d74b3eb7f31e60bdb08e8b69cd4c Content/Menu/gearIcon.xnb
+32d674894a85d5b7d64d739b017a057a Content/Menu/menuBackground.xnb
+c156b66606690b8e9b8c5a224edc967c Content/Menu/trashIcon.xnb
+0722a14d22a9236730b8775bce47e3df Content/Objects/fog.xnb
+2c22ea0c3d1c55f02cbbec66fdf746eb Content/Shader/BBlurH.xnb
+6d97146c91740b470f20cc6ea7124028 Content/Shader/BBlurV.xnb
+622283b298b80d120b4cb0710ff7676a Content/Shader/BlurH.xnb
+77389a434c22b9ec0b7d7d2e41f10245 Content/Shader/BlurV.xnb
+1adaeb8b5260721822d7027b5c6924fa Content/Shader/CircleShader.xnb
+bf55de825040b88df784105e902f5799 Content/Shader/ColorCloud.xnb
+06379c2752c8a649be86f621e77ffeb7 Content/Shader/ColorShader.xnb
+90b22e738683eac8881f982c26d8e0f2 Content/Shader/DamageShader.xnb
+52b5de6f572fdd256c53b87734c3aec6 Content/Shader/EffectBlur.xnb
+507e6ffadea91960f48c07c013bc69b2 Content/Shader/FullShadowEffect.xnb
+2aa5f06c5e3527b6b17fdd085d55aa78 Content/Shader/LightFadeShader.xnb
+ca40b5864e2d40417d980c86d9849103 Content/Shader/LightShader.xnb
+a41358639469387600328a26fd745d72 Content/Shader/RoundedCorner.xnb
+16011a2d54490cc4568564caff75d1cd Content/Shader/RoundedCornerEffectBlur.xnb
+2d91d3fb8b0c2afc77813c11b16f779c Content/Shader/SaturationFilter.xnb
+2699282743604461ac758d0b95d17552 Content/Shader/ShockEffect.xnb
+078c468277cbc551ef78edf4b319ebcf Content/Shader/ThanosShader.xnb
+3f78bc0542b39f5e08e430ec2148da12 Content/Shader/WaleShader.xnb
+71159d239b9dd5c3167028e167a9f4c4 Content/Shader/WobbleShader.xnb
+cd0fc536e330e6a395179aedcaaf0721 Content/SoundEffects/D360-01-01.xnb
+c93919b2cbd77fb14034b33d8dc7b256 Content/SoundEffects/D360-02-02.xnb
+5c646c5d9187a5de9dd15206de927092 Content/SoundEffects/D360-03-03.xnb
+984c9801ccdf0d3acc438ebb9d6eb0ae Content/SoundEffects/D360-04-04.xnb
+5fbaf69aa09dec1e94e3e1447ab4480a Content/SoundEffects/D360-05-05.xnb
+469d74c6c9f8f83042ebac201dc7511a Content/SoundEffects/D360-06-06.xnb
+656e33f4fd355417dbd1b5391a5f8541 Content/SoundEffects/D360-07-07.xnb
+2af9e7d1b968441b7d12a5ed576e8a2e Content/SoundEffects/D360-08-08.xnb
+fb2ceeef0df8a8324312f61b7cead904 Content/SoundEffects/D360-09-09.xnb
+5357d0a338918eceb2b0a6a0e5250382 Content/SoundEffects/D360-10-0A.xnb
+26244e2fb7e0b7f0535c52132b8c1c2e Content/SoundEffects/D360-11-0B.xnb
+2d192b0a1080d6c59e9c9e121500a7bc Content/SoundEffects/D360-12-0C.xnb
+810a58d650a8d77be0da4d9b89afd68c Content/SoundEffects/D360-13-0D.xnb
+2fdecfc566ab5c4e6a5545b3b6a0a37f Content/SoundEffects/D360-14-0E.xnb
+a16bf815fd4a67070bf81edf963e936e Content/SoundEffects/D360-15-0F.xnb
+f2ccaf12b0659b9ebad3471c3914a355 Content/SoundEffects/D360-16-10.xnb
+523b751d64d03fc16472e8a7666c3d71 Content/SoundEffects/D360-17-11.xnb
+2fe843a28ae8ef9b637b1b58d41e9602 Content/SoundEffects/D360-18-12.xnb
+f8ee413ca598fb3969d7370c32d03d79 Content/SoundEffects/D360-19-13.xnb
+600c29fadaf192bdddd2c1d3eef2cfb5 Content/SoundEffects/D360-20-14.xnb
+22b86f532d5c4349e9f9c723426518c8 Content/SoundEffects/D360-21-15.xnb
+7c18f3b71c95a99475d3513861e4b2e6 Content/SoundEffects/D360-22-16.xnb
+44685b0f0919e85eed3e5125b02ae02d Content/SoundEffects/D360-23-17.xnb
+ced96d6cb7ad167b6c2e898ed9d51ae5 Content/SoundEffects/D360-24-18.xnb
+c33ff7a6f795009044db3c5c3b7a4bc9 Content/SoundEffects/D360-25-19.xnb
+586a674cefaa1ec08fbb0925904b03af Content/SoundEffects/D360-26-1A.xnb
+67a9737a5ef25324d9ae8b55df463bc8 Content/SoundEffects/D360-27-1B.xnb
+df73645cc0e081fb028ade1fa00df6b1 Content/SoundEffects/D360-28-1C.xnb
+d5462e05dcfdbe828621050bf4fea3ec Content/SoundEffects/D360-29-1D.xnb
+4fa97c4f7025bf0b69c2af362655d735 Content/SoundEffects/D360-30-1E.xnb
+d73bc175fb6072c1214f2a7064a648c0 Content/SoundEffects/D360-31-1F.xnb
+e6c2743e6d0d57c61e761d91b779d7ed Content/SoundEffects/D360-32-20.xnb
+5c6fa055f05737ab2a84e6f290a02513 Content/SoundEffects/D360-33-21.xnb
+3a8b16d878b66fb9f5aa80b30ed23d65 Content/SoundEffects/D360-34-22.xnb
+4d42f129628e85ada82fe6af606d2abe Content/SoundEffects/D360-35-23.xnb
+79da7858ee77d85b917f6b17e5b01db9 Content/SoundEffects/D360-36-24.xnb
+30c02a359b10e0c5546cd0008cd5cc26 Content/SoundEffects/D360-37-25.xnb
+936ed00e8a23a80e0ecdc59c8f1c19c5 Content/SoundEffects/D360-38-26.xnb
+41327175f8f6268db8f5cc8745cf6e74 Content/SoundEffects/D360-39-27.xnb
+bebd0df23b88511c03d84ddfbf8244a2 Content/SoundEffects/D360-40-28.xnb
+28023e2c2818799620a6039bb6dfd9ea Content/SoundEffects/D360-41-29.xnb
+ec04d1a449e189809b304df239d5c320 Content/SoundEffects/D360-42-2A.xnb
+b36f98f1424d14f44a267301500acc17 Content/SoundEffects/D360-43-2B.xnb
+9d3089b011ec3d2f6eb3a7a8b5fee0c1 Content/SoundEffects/D360-44-2C.xnb
+8f768847dc9fdbfa94ed753ca5050d9f Content/SoundEffects/D360-45-2D.xnb
+788c4bc21b171e2039cdadaf68e6adc0 Content/SoundEffects/D360-46-2E.xnb
+c8f653dcd1c2b895c9e1effd42fd7401 Content/SoundEffects/D360-47-2F.xnb
+91a97ebe3f21b58041e21ff098e4da22 Content/SoundEffects/D360-48-30.xnb
+3d341fe589785de3ecc22b1c057c08a8 Content/SoundEffects/D360-49-31.xnb
+ba2971273c8244ef61444d92bb6c2247 Content/SoundEffects/D360-50-32.xnb
+4675df9ed4fb28819ac1b6f465882326 Content/SoundEffects/D360-51-33.xnb
+f8fb9989d5638ca7f822104e011dba89 Content/SoundEffects/D360-52-34.xnb
+8d2efefaa7a9063d66801884d148a599 Content/SoundEffects/D360-53-35.xnb
+5e29294e72435dd5f3fe8e24b0e2d366 Content/SoundEffects/D360-54-36.xnb
+79ef104917e82d5cb9e59ebc11393765 Content/SoundEffects/D360-55-37.xnb
+79b6ffdc7ecb89096c312a785ee4b0eb Content/SoundEffects/D360-56-38.xnb
+49e8a65c3090ca851e27631ed52d4186 Content/SoundEffects/D360-57-39.xnb
+7a887b1f7dd94a1ffb4fb0729fe7d0b8 Content/SoundEffects/D360-58-3A.xnb
+c8533cbf48d671c9bc93def80d8adfb4 Content/SoundEffects/D360-59-3B.xnb
+ef05c44b246ddf5ac2afcc4bf1530725 Content/SoundEffects/D360-60-3C.xnb
+ca84bd0dc4aa28b992296b8151b45343 Content/SoundEffects/D360-61-3D.xnb
+6302dc4b909f46fb95d321c1cd5b3246 Content/SoundEffects/D360-62-3E.xnb
+457f239b0294839e1dc89778526a3254 Content/SoundEffects/D360-63-3F.xnb
+30f3c9c9a1a3bcc3e2bae9e3fd7cbbfc Content/SoundEffects/D360-64-40.xnb
+b4a0acc1695553e5d6e96137736f600a Content/SoundEffects/D360-65-41.xnb
+9772e8df986ed589303427489c6800ff Content/SoundEffects/D368-16-10.xnb
+a60f59a12cb1de6b46aa432b914f09ff Content/SoundEffects/D370-01-01.xnb
+61fa49f29bd3bc38da3e9485b64f6ff6 Content/SoundEffects/D370-02-02.xnb
+1caa9890f55ce2abae47744b46a30d2b Content/SoundEffects/D370-03-03.xnb
+f8517ff0f7b70d4a41fdec94f4382f0c Content/SoundEffects/D370-04-04.xnb
+d35af4e149173c75b90cd4a7857c7570 Content/SoundEffects/D370-05-05.xnb
+644bee93e2f1c4f1051cc6da07a54c70 Content/SoundEffects/D370-06-06.xnb
+8e0a7dcdfac61ec84d6a9928c15ecad1 Content/SoundEffects/D370-07-07.xnb
+2f28e7770909ea08ae8ecc4d9eedb7d6 Content/SoundEffects/D370-08-08.xnb
+c541f591c24328be7dcf4981659cfd44 Content/SoundEffects/D370-09-09.xnb
+1b7be4490156aa301173a411cc2108a4 Content/SoundEffects/D370-10-0A.xnb
+74b22f4e346f223ed260c5278984d8aa Content/SoundEffects/D370-11-0B.xnb
+63e50254a6a74f51dbcfddde13eb11e2 Content/SoundEffects/D370-12-0C.xnb
+0babf5d09781344afd1df1c2f87a22f4 Content/SoundEffects/D370-13-0D.xnb
+7f93ece3acc2a1ceaf998e3fc370a063 Content/SoundEffects/D370-14-0E.xnb
+af8614b0187fe88f4f34af635cebba82 Content/SoundEffects/D370-15-0F.xnb
+06fdf54a4e02436611735b3d83be3449 Content/SoundEffects/D370-16-10.xnb
+b82764bbb9468001c1d636d9e416c702 Content/SoundEffects/D370-17-11.xnb
+fe9eb08c636aa3930d1e7b2d17334306 Content/SoundEffects/D370-18-12.xnb
+dacc8f5f775a8d658debabe155916b1f Content/SoundEffects/D370-19-13.xnb
+050262526941a65f45bdc5ecd62ecd98 Content/SoundEffects/D370-20-14.xnb
+440b685555df0cbda87adbfea12b6855 Content/SoundEffects/D370-21-15.xnb
+71d70eb24a51fba56974a4a41586db82 Content/SoundEffects/D370-22-16.xnb
+6df7ed54618a2cc266be5621c5c84ccc Content/SoundEffects/D370-23-17.xnb
+5527f40a920ceef27602673f1cb70e86 Content/SoundEffects/D370-24-18.xnb
+30b96f9a1872ba770dc6914a5a360b7e Content/SoundEffects/D370-25-19.xnb
+9f2c7c0bf7cc762bc644ab2b55fc3665 Content/SoundEffects/D370-26-1A.xnb
+3cc986c1047a0f0541794dc00c2dcd3d Content/SoundEffects/D370-27-1B.xnb
+d7498098c96fd205bd702c3c200a0413 Content/SoundEffects/D370-28-1C.xnb
+8a864e31eb9b7c40c4f291ee75673aa0 Content/SoundEffects/D370-30-1E.xnb
+a6d486dbb172c2ccefbc5457340f0d9b Content/SoundEffects/D370-31-1F.xnb
+5b1dc701409f74e97834a5876b2df1d3 Content/SoundEffects/D370-32-20.xnb
+d619afc9586c8ce91a49761bd503b981 Content/SoundEffects/D370-33-21.xnb
+5b1dc701409f74e97834a5876b2df1d3 Content/SoundEffects/D370-34-22.xnb
+0a7f1be7d7af297fa6f8d3fb84b64864 Content/SoundEffects/D370-35-23.xnb
+fdfc3b0113e4152b228f27c8e0f3da32 Content/SoundEffects/D378-01-01.xnb
+270cd4d2f5f9d22affb64f901c96ceb5 Content/SoundEffects/D378-02-02.xnb
+5ba47433d78da2df973798b70439ed09 Content/SoundEffects/D378-03-03.xnb
+f48c7f32e2e5986c16258d5693740d85 Content/SoundEffects/D378-04-04.xnb
+9b150ccdd4da0925200fd9b044297b3e Content/SoundEffects/D378-05-05.xnb
+5c9a3179e95b3c57095c79d00644fdc3 Content/SoundEffects/D378-06-06.xnb
+0009ac5f8213ca27adf417914d2aa8bc Content/SoundEffects/D378-07-07.xnb
+ad11e487827c8b646a883921447bbbd6 Content/SoundEffects/D378-08-08.xnb
+aa6af3680710aaf971d79931e85fc189 Content/SoundEffects/D378-09-09.xnb
+858bf0a479c582675892db798ff559ac Content/SoundEffects/D378-10-0A.xnb
+0fd677474e634ddbc0cbb177014d4c70 Content/SoundEffects/D378-11-0B.xnb
+e967db1907b7ad5e1c7aceee1aed824c Content/SoundEffects/D378-12-0C.xnb
+e40839e9fa6412c2bdf4a24c0e2676ac Content/SoundEffects/D378-13-0D.xnb
+bacf7e12584e19379a7ec9bf950d171f Content/SoundEffects/D378-14-0E.xnb
+b27eab8dcc3084799cc9f636d8c41239 Content/SoundEffects/D378-15-0F.xnb
+9a90352487baf5d17bea12ecb18b4349 Content/SoundEffects/D378-16-10.xnb
+fb3bfb537b3ee787af9724aa198ac6c6 Content/SoundEffects/D378-17-11.xnb
+5c0ed232acf0dc7770b6c65d8689dae0 Content/SoundEffects/D378-18-12.xnb
+7e76e27ace9848cbc00a5f755e3c6398 Content/SoundEffects/D378-19-13.xnb
+8669dfefc30e625bfa3fc27d8d94ad72 Content/SoundEffects/D378-20-14.xnb
+e435fbf7c192692b4afdc4518d942318 Content/SoundEffects/D378-21-15.xnb
+59fb4dce99893b4f60c0624d1afd33ff Content/SoundEffects/D378-22-16.xnb
+10c7812aa70633170cf2f256c1417508 Content/SoundEffects/D378-23-17.xnb
+45c2ec67b98ce72264994269dfcdce13 Content/SoundEffects/D378-24-18.xnb
+012d9127e57f26b43772e9ec25e64256 Content/SoundEffects/D378-25-19.xnb
+1b482c4673f6a6ba0b286f89b18351c9 Content/SoundEffects/D378-26-1A.xnb
+8c64dd4681c2650cc0f906e57e6328ff Content/SoundEffects/D378-27-1B.xnb
+c89aa1aff637fccd25eb046535394bbe Content/SoundEffects/D378-28-1C.xnb
+397f6f39be42dcfd861ec881dba04a11 Content/SoundEffects/D378-29-1D.xnb
+052874b44ab7c6e472aa08b05f92add8 Content/SoundEffects/D378-30-1E.xnb
+bae1a2c9f96c85e3c5833517930e9885 Content/SoundEffects/D378-31-1F.xnb
+939c76d6efba29faed8e4d3ca3905ab3 Content/SoundEffects/D378-32-20.xnb
+d0373b65689273aae32044645125774a Content/SoundEffects/D378-33-21.xnb
+48ef8939e549b2db3cee0976e9fdf5e4 Content/SoundEffects/D378-34-22.xnb
+89a934ba5526cca92ba5518b2420d9bf Content/SoundEffects/D378-35-23.xnb
+f2980433d032641582a3edaf41039dd8 Content/SoundEffects/D378-36-24.xnb
+8222b8024ef8cf619624e7ae06c8ca44 Content/SoundEffects/D378-37-25.xnb
+fe9ebb132e4533c0ca0a446467ae7721 Content/SoundEffects/D378-38-26.xnb
+eb99ff1366dd8f4f1d5fc5efe7abd65c Content/SoundEffects/D378-39-27.xnb
+058a0d56b08a3368a74d3bbf2eb341d0 Content/SoundEffects/D378-40-28.xnb
+4beb356b766d9abdf886f2f8208d3ebb Content/SoundEffects/D378-41-29.xnb
+d8083541ee7fe969f4acbd02a62160db Content/SoundEffects/D378-42-2A.xnb
+8b694c0d9686e52b7876b463f7b38714 Content/SoundEffects/D378-43-2B.xnb
+272b2bba85cbdd1b0afa3233d69c1d40 Content/SoundEffects/D378-44-2C.xnb
+6c19aa5a2a0ed20b18e9833795b0c93b Content/SoundEffects/D378-45-2D.xnb
+b467911d2505c2a60b984d06c2bd955e Content/SoundEffects/D378-46-2E.xnb
+b793afa968dca20ca12fc33135a57606 Content/SoundEffects/D378-47-2F.xnb
+0f205adb3d6ba0fb961ec1abb268aa71 Content/SoundEffects/D378-48-30.xnb
+c065a18a566e08b6dab43547f1f691b4 Content/SoundEffects/D378-49-31.xnb
+927ebce8e0ceb7795e34e5c5c70c7e01 Content/SoundEffects/D378-50-32.xnb
+eb993050e9d59c725e037f94d8505305 Content/SoundEffects/D378-51-33.xnb
+57d6b2c0e276ef8a483bb68c88f63016 Content/SoundEffects/D378-52-34.xnb
+f776f54a5ee2d18e63c66b4eeb0cc8e9 Content/SoundEffects/D378-53-35.xnb
+7b9830e21930b15adc5d6b40d03aebc5 Content/SoundEffects/D378-54-36.xnb
+19bc3aa3ec878e2b7e11e86c5b119cad Content/SoundEffects/D378-55-37.xnb
+5a0f2aa01c67346b7e42b85842bed30d Content/SoundEffects/D378-56-38.xnb
+44d08c14b2261713a9327345e8ac2b6c Content/SoundEffects/D378-57-39.xnb
+b315dd41aafcef2c88509239586da8b8 Content/SoundEffects/D378-58-3A.xnb
+6cfdff8eb27c712b4eb78c1575d12b2f Content/SoundEffects/D378-59-3B.xnb
+80e9b9eb4ac3a54827aae87308b28f25 Content/SoundEffects/D378-60-3D.xnb
+6c15c50bfba3b74438b5b6e563c894d7 Content/SoundEffects/D378-61-3E.xnb
+bb8edc2387dc01de8dfe0d7bfd1ef0c6 Content/SoundEffects/D378-62-3F.xnb
+69bc8c779e55f901fee439d091914059 Content/SoundEffects/D378-63-40.xnb
+45278f52458ba7ab05b1692954f988b6 Content/SoundEffects/D378-64-41.xnb
+4bc7a76c09f1ee701a169b303f437dab Data/Animations/Enemies/angler fry.ani
+07765882d410d35ecb964ac9986bbd19 Data/Animations/Enemies/anti kirby suck.ani
+5a9ff060fbd672a7518f061e85848a79 Data/Animations/Enemies/anti kirby.ani
+630ea54541aa4a2e904029ed20b17274 Data/Animations/Enemies/anti-fairy.ani
+c9457a2822db667844442d764eec3fd3 Data/Animations/Enemies/arm mimic.ani
+117e6fa24eb177567d0c1191479317c1 Data/Animations/Enemies/armos.ani
+59f321172a28a777e0794b284b0ce1f3 Data/Animations/Enemies/beamos.ani
+1e2c10214e06cadff198baa2ef9896f2 Data/Animations/Enemies/beetle.ani
+43461eda9cfce485ab6b9786d36de611 Data/Animations/Enemies/bladetrap.ani
+91f03da7e8bb363403e4ae3b5e9d496e Data/Animations/Enemies/bloober.ani
+d699d747c5ec2696082fb63d709b6912 Data/Animations/Enemies/bomber.ani
+7b27d6989c247d94ba619c6c2f9d662b Data/Animations/Enemies/bombite.ani
+ff40b750e5d6b77638f19874fe819498 Data/Animations/Enemies/bombiteGreen.ani
+f41cf4282629f7377035046747ffa242 Data/Animations/Enemies/bone putter.ani
+fe78bcbcf1c1c2d6c797aca9946d9de4 Data/Animations/Enemies/bone.ani
+e458d08ae3f477924f253d57d8df26e1 Data/Animations/Enemies/boo buddy.ani
+03012f259836997c455bdffbe25d0ad4 Data/Animations/Enemies/buzzblob.ani
+68e9056f90ab13858ef9c6ba4c1eb301 Data/Animations/Enemies/camo goblin.ani
+a09d83956940fa8fbdf82389a11df185 Data/Animations/Enemies/card boy.ani
+2a52f39421b136bb7a634cd533340f2c Data/Animations/Enemies/cheep cheep.ani
+0b5ef9be71d4246a4f3031791ba42f00 Data/Animations/Enemies/crab.ani
+33997e6b5143869dfefedc90dcacd01c Data/Animations/Enemies/crow.ani
+d78f8db3b8c3e7e0d8ebc81dbf97d47a Data/Animations/Enemies/darknut spear.ani
+aa4802d540d7659b245d73ea71bfdc39 Data/Animations/Enemies/darknut sword.ani
+428a5e77d8d0191d122f52c84df4fd4c Data/Animations/Enemies/darknut.ani
+08d3d00af2538faf92d9ea5e1703cb99 Data/Animations/Enemies/fireball dungeon.ani
+3ff6d79be2c12c33e382ce701f29aa06 Data/Animations/Enemies/fireball.ani
+baa98137a50194b9656d241d54bd350c Data/Animations/Enemies/fish.ani
+f2155b4f67d7a623e7f7247765af7f29 Data/Animations/Enemies/flame fountain fireball.ani
+e491e27816cdfabc4d2fff89a54fe333 Data/Animations/Enemies/flame fountain.ani
+c07789d44c271feb7377518abae089d9 Data/Animations/Enemies/floor layer.ani
+0cd59004e97cd814e709632cd04678d0 Data/Animations/Enemies/flyingTile.ani
+89e63642876d298451835b912607b0a2 Data/Animations/Enemies/gel.ani
+70266488b4646ab624d7867d0894680e Data/Animations/Enemies/ghini.ani
+6d298e889b1d26428210f5e6e0cfb3cd Data/Animations/Enemies/ghiniGiant.ani
+2f34f3e86c81d8af567da111aa6c5b1a Data/Animations/Enemies/giant bubble.ani
+e05f605aa6c645c7af78174b3d31ce1e Data/Animations/Enemies/gibdo.ani
+20f8dbdea8dd7fe04b7bb1a9825a1ed0 Data/Animations/Enemies/goomba.ani
+be114585dc886c2e4cf75f3f19cd30c2 Data/Animations/Enemies/goponga flower giant.ani
+6d3072e65e27c6032ccf830dbafe1672 Data/Animations/Enemies/goponga flower.ani
+75ec684b4311d4d02c159370ecbedd86 Data/Animations/Enemies/green zol.ani
+df97498ccbf8b5d8d14730502d693a91 Data/Animations/Enemies/hardhat beetle.ani
+80e51e9db2d5b9e6f4e5e56fb2aeb033 Data/Animations/Enemies/iron mask.ani
+afde86de9c4eebc2c17f02febca91ac1 Data/Animations/Enemies/karakoro.ani
+39684fb4a90525c7dce26e17c290f67d Data/Animations/Enemies/keese.ani
+3fafc7a8c19a09d4185dbde32341bbb9 Data/Animations/Enemies/leever.ani
+097402b55a3ad3491442a7741493bd25 Data/Animations/Enemies/likelike.ani
+48b49b9b45590a3072a7dbe9ed1259b7 Data/Animations/Enemies/mad bomber.ani
+48193658c0de63f2f0d2b2c6c45912b6 Data/Animations/Enemies/mask mimic.ani
+6f8ea59fb07364eb2cde9199657309a7 Data/Animations/Enemies/mega thwomp.ani
+32fdf995f3a3459af807075b7fd2f776 Data/Animations/Enemies/mini moldorm.ani
+e8c361c9d9ab8262ddf0766be7d9b610 Data/Animations/Enemies/moblin sword sword.ani
+e15d974c3e55af125d6069592ab57af8 Data/Animations/Enemies/moblin sword.ani
+2a1ebfcac2b4599bfe085e17924ffaa3 Data/Animations/Enemies/moblin.ani
+d12069f1dd3871b77a72656d25ace913 Data/Animations/Enemies/moblinPig sword.ani
+2b78bf609fe3ffd313b57a55c2c03d0b Data/Animations/Enemies/moblinPig.ani
+89dfdfb09915925b8145ebbe405b3aa6 Data/Animations/Enemies/monkey.ani
+50b1fe375e5ca31fc24bde128f18db04 Data/Animations/Enemies/octorok shot.ani
+9e35936e758d7c98b85f76b157bc8599 Data/Animations/Enemies/octorok.ani
+26aa2dffdc507d4d2482fb843f7ca9a9 Data/Animations/Enemies/pairodd projectile.ani
+e7c85ac80c000cb4be9b242153d6fe00 Data/Animations/Enemies/pairodd.ani
+8f56178f75bf7bcd70562bb2d5950522 Data/Animations/Enemies/peahat.ani
+45ba2b41e863d81eb2ad31cfcf24e729 Data/Animations/Enemies/pincer.ani
+d778136897870705a78ccea61431ce9f Data/Animations/Enemies/piranha plant.ani
+9fd0c71e0b1fd428302377feb3f76eee Data/Animations/Enemies/podoboo.ani
+c0222034b50fca02106eaa120c651c51 Data/Animations/Enemies/pols voice.ani
+39125514918edab2dd92fec74ed4195b Data/Animations/Enemies/raven.ani
+43773c413af4d5bf70a8387d7981f42e Data/Animations/Enemies/red zol.ani
+cf09fa96b6d0852dfbb729228c17a20d Data/Animations/Enemies/river zora.ani
+25583467ad2bd297763905a7b3f81f43 Data/Animations/Enemies/rock.ani
+2ee8a08555d2c1bbc3fba58b24817fd1 Data/Animations/Enemies/rope.ani
+dcac3d228929be0db173b8c8293fe105 Data/Animations/Enemies/sea urchin.ani
+61a267934ed25b4ff697f5dcd740a845 Data/Animations/Enemies/shrouded stalfos.ani
+a9ee74f21e62426813b1021c504e5d02 Data/Animations/Enemies/spark.ani
+1d382daf16260a05c3f37d79d7d28fb0 Data/Animations/Enemies/spiked beetle.ani
+098d0d7d2ce7e0b4980c1c9faeaf75e0 Data/Animations/Enemies/spiked thwomp.ani
+157de89b941c7ede9906feeff97403d3 Data/Animations/Enemies/spiny Beetle.ani
+29f8a706636d6add02efd346d188cda4 Data/Animations/Enemies/stalfos green.ani
+911ce92bd5d8dfb83c4555476898873f Data/Animations/Enemies/stalfos knight sword.ani
+e0274ece356d8cc72912f49d68760684 Data/Animations/Enemies/stalfos knight.ani
+cab26ce07b2dd0295eb656a200294d25 Data/Animations/Enemies/stalfos orange.ani
+0a5361ee557dc48cec9929e827705112 Data/Animations/Enemies/star.ani
+ad08f30aebf014218ef0b31a5f6cc080 Data/Animations/Enemies/tektite.ani
+b07b6a7e119b17794accdd074c95f355 Data/Animations/Enemies/thwimp.ani
+0f4029024e897ef2fb8911d0ff125e3a Data/Animations/Enemies/vacuum.ani
+ac5314c747e0585027ad6a3815ff977b Data/Animations/Enemies/vire bat.ani
+ba5030fa9faee066533ca8e64ed330e0 Data/Animations/Enemies/vire.ani
+b03ff98ab6bbf2fab12ee694f6fe9ba3 Data/Animations/Enemies/vireball.ani
+418b10280bbcc9ba8c52328031411927 Data/Animations/Enemies/water tektite.ani
+dc789b89839c07c40d2230168ebbba28 Data/Animations/Enemies/wizzrobe.ani
+f04450a7e1b35f869ba12a4929a58e38 Data/Animations/Enemies/zombie.ani
+db88c7b7f351c1365d2acd74a8fdb7cd Data/Animations/Intro/light.ani
+03c7b100ccb4a4dbf20de6140a1320d7 Data/Animations/Intro/link.ani
+77342d28bea3dcdb2fbe75946bef6496 Data/Animations/Intro/link_boat.ani
+ef4d4ae69e87a6f0236ae8249f5a6845 Data/Animations/Intro/loading.ani
+6a46562f5ad4afae3a7ab0bdb0f419d3 Data/Animations/Intro/maria.ani
+4bae19b714ee49513ddac1a2bcc3e71c Data/Animations/Intro/thunder.ani
+9fdc67508ab480eb93e9540d9bff747e Data/Animations/MidBoss/armosKnight.ani
+e9a82eca6babf3e3b9b2710cf2421986 Data/Animations/MidBoss/ball and chain soldier.ani
+3d47c5ac3a474f923d01fef50c67b356 Data/Animations/MidBoss/bigMoblin.ani
+4603ab3052d20651e4bb20e0af498600 Data/Animations/MidBoss/blaino.ani
+bddb6d45056161cae66d2d94f2869c0b Data/Animations/MidBoss/cue ball.ani
+fb01a65abdd7f200e1addf54ded5bf52 Data/Animations/MidBoss/desertLanmola.ani
+23c6dc3050854d1a572e844228a8d282 Data/Animations/MidBoss/giant buzz blob.ani
+1a7d17815a2cfc291d13fae20a274e48 Data/Animations/MidBoss/gohma.ani
+048606ea3f7cd2bd5d8c3f75650ae9f7 Data/Animations/MidBoss/grim creeper fly.ani
+609ccf3bd078d607a52db3d6bf342ead Data/Animations/MidBoss/grim creeper.ani
+d283c2ef649583f034b15e0c8a339bf6 Data/Animations/MidBoss/hinox.ani
+83212bccf22188874fa014fc7b8263da Data/Animations/MidBoss/mbossOne.ani
+58cda29054be1b3f3438deb40125171d Data/Animations/MidBoss/mbossOneBoss.ani
+7cb644a2b18190b5f6dff5d2ad805168 Data/Animations/MidBoss/smasher.ani
+87f8d7213e0aa4333e16aed78007e4f5 Data/Animations/MidBoss/stone hinox.ani
+6562afebdcec8ee8d502de5a75f63ded Data/Animations/MidBoss/turtle rock.ani
+64ec7d4dcf50958d87f352136134533e Data/Animations/NPCs/BowWow.ani
+3664c0a92876a8d04bf83847719a03f6 Data/Animations/NPCs/alligator.ani
+fed7f921e0c9e7923d403941be71e37a Data/Animations/NPCs/animal 02.ani
+5a21f31758f3f31fef290ce785492ded Data/Animations/NPCs/animal 03.ani
+d8e22a7f05ae6305a0a045e4f54c31bf Data/Animations/NPCs/animal_rabbit.ani
+c2ae9a78a1de951bb0fb60fe788d42de Data/Animations/NPCs/bat.ani
+c9670a91d3aeb8209b4edfa92bc9249e Data/Animations/NPCs/bee target.ani
+ecf7308fff1a2901c996c68506fc551d Data/Animations/NPCs/bee.ani
+222f69180b8bef531555ec7b50a7a86c Data/Animations/NPCs/bird.ani
+a4f157655185e9fbbcd9422eb4b66a9c Data/Animations/NPCs/bowWowSmall.ani
+05ce7b754d497fd8bdfba368d020578f Data/Animations/NPCs/broom.ani
+4a80dad8c1c5327f64f2d3b8f9af3064 Data/Animations/NPCs/butterfly.ani
+5dd047b8a6388548a7ff6d3fc161a7a0 Data/Animations/NPCs/cock.ani
+0c59fd1ab6bee4ea91ce5ab3aa766955 Data/Animations/NPCs/dance fish.ani
+7c63ee9ef9658930fe13b6fac30a0d25 Data/Animations/NPCs/dog.ani
+4146ad463d5bda001b994c4063a8b1e5 Data/Animations/NPCs/fairy.ani
+fd4fafe74aca2cb88726cd872d1fbe1e Data/Animations/NPCs/fish_big.ani
+2ffe6ae9fe8bada4b878ed355a87467d Data/Animations/NPCs/fish_small.ani
+0d6a3baa52473151c8e0cb7ad2e6fcd8 Data/Animations/NPCs/frog.ani
+499b6b9e51e660612920b517c07583d0 Data/Animations/NPCs/ghost.ani
+61f62cffe8e10d677ed9a1726025ace3 Data/Animations/NPCs/letterBird.ani
+f5afca55fc5edc439e45a5c8c4ba3f88 Data/Animations/NPCs/letterBirdGreen.ani
+dc3e3a3237576e6bda29d6fc32ea390f Data/Animations/NPCs/mamu.ani
+b9bc3e81bb4b467aa4a234975b907e05 Data/Animations/NPCs/manbo.ani
+0582713959b2de174abbe3bc3d8f3232 Data/Animations/NPCs/marin.ani
+6ed9a260fafc6e7c60501b44c000cdf8 Data/Animations/NPCs/marin_letter.ani
+9251b41584fb53508fcc92889cbd96b9 Data/Animations/NPCs/monkey.ani
+c7bca8a614b8df22b6958581e9e69bca Data/Animations/NPCs/mouse.ani
+9d313546ee1ff993984c457e4c0a8746 Data/Animations/NPCs/npc04.ani
+2967de96d60a0e32e461a27e18292f7d Data/Animations/NPCs/npc05.ani
+ee2e24c3b62d77fc217f80e1ea764fd7 Data/Animations/NPCs/npc07.ani
+4f96f3360013f793ebabff00922d3c58 Data/Animations/NPCs/npc09.ani
+4cc98abe6ed3529ce03f248e317f08e0 Data/Animations/NPCs/npc_boy_left.ani
+8652a5cf85815041012de3d9375ffd3e Data/Animations/NPCs/npc_boy_right.ani
+9c48235a51a9199094a883805736baea Data/Animations/NPCs/npc_chef.ani
+a70f0778307eaf29daa1cce2e09404bc Data/Animations/NPCs/npc_chicken_dude.ani
+b30609a2cdcedee329a535360bd1404a Data/Animations/NPCs/npc_color_dungeon_blue.ani
+8278a118589567878a98d4890bc290da Data/Animations/NPCs/npc_color_dungeon_red.ani
+6642a9cd6077a0ce944da8f4f61a70e9 Data/Animations/NPCs/npc_fisherman.ani
+5ac5a3ed7d6ed2c2bc121d7e6b7c16e7 Data/Animations/NPCs/npc_frog_boy.ani
+7a08d832f00e311a03423a026d4a76ca Data/Animations/NPCs/npc_green_boy.ani
+51ddeebe78c16ce3fa03846b369e58f0 Data/Animations/NPCs/npc_hidden.ani
+444f168e0f6efc4a9ef8207ebadbf9df Data/Animations/NPCs/npc_hippo.ani
+b19b68298a23fc59bf7a5117c11422dc Data/Animations/NPCs/npc_letter_boy.ani
+3fbced2f750fdf9414845800f59eb50d Data/Animations/NPCs/npc_letter_girl.ani
+b8cf99224df7ed24526c6f50d5be47a7 Data/Animations/NPCs/npc_lost_boy.ani
+ad47ff7238183e45131adc92f856d8eb Data/Animations/NPCs/npc_mermaid.ani
+9aea3d34cf73bf97ec1877f10a0b84b5 Data/Animations/NPCs/npc_painter.ani
+fe9a6f65b6ef76e207d76271e7ee6c61 Data/Animations/NPCs/npc_raft.ani
+e119d1e0e9b5e9a86214ded646fb99ff Data/Animations/NPCs/npc_red_boy.ani
+cb242e6468129e8ec2d46a84adeb0b8c Data/Animations/NPCs/npc_tracy.ani
+04eb34dc9ab470fdf7afb8940dc2c55a Data/Animations/NPCs/npc_trendy.ani
+0ce1bdb8a2b4483407c83be6b758b15f Data/Animations/NPCs/npc_woman_broom.ani
+9198ca29573c860f3cb2f42d5d283600 Data/Animations/NPCs/npc_zora.ani
+a592c27d72fc7f05ac92a41b720c0929 Data/Animations/NPCs/owl.ani
+013e6397f05f0b80e6fbd5f33e0c43a9 Data/Animations/NPCs/photo_mouse.ani
+4aa79bb5effb4a63783a202004f1b1db Data/Animations/NPCs/raccoon.ani
+efe4e2633e3bc525b3a4bb931494484c Data/Animations/NPCs/shopkeeper.ani
+754c0dcdfd52cffb4456aae7b5a4c4e7 Data/Animations/NPCs/singing frog.ani
+5ca539904cf8d2cc43e5ab685a05cf4d Data/Animations/NPCs/tarin mushroom.ani
+7ea61fba4419065599530ce609b2564a Data/Animations/NPCs/tarin stick.ani
+f2961802df4e66e65b9fc3aeea0b6414 Data/Animations/NPCs/tarin.ani
+47ef5e32eda7b16312487c861c05d2ec Data/Animations/NPCs/walrus particle.ani
+288a99516c373f9eeb1c804462750a79 Data/Animations/NPCs/walrus.ani
+f97ae0c3806ea883aaf1f28d7d59e431 Data/Animations/NPCs/witch.ani
+dee08b763d56952e896d8351b8670c54 Data/Animations/Nightmares/anger fish stone.ani
+3f57ca600fe1d19b1f4c3e86beb8d2e3 Data/Animations/Nightmares/anger fish.ani
+1e5c39b07f3f4c31d87301b6f2c63baa Data/Animations/Nightmares/evil eagle.ani
+def4f84ce4c37fdf9e83a18bed6124f6 Data/Animations/Nightmares/facade hole.ani
+f66db1dbfdc14bf11beacc7db5f4edcc Data/Animations/Nightmares/facade.ani
+b1cb45aa62a4bce1693c5db37524399c Data/Animations/Nightmares/genie bottle.ani
+5eff913218424a2606f68391cf852910 Data/Animations/Nightmares/genie smoke.ani
+983874c21a2a2bd14f4e92b2dd537323 Data/Animations/Nightmares/genie.ani
+6aba5bf67ffaa63d62795f52e07b8e6e Data/Animations/Nightmares/hardhit beetle shot.ani
+1448a38f8364d21bb8b90c83d85f2279 Data/Animations/Nightmares/hardhit beetle.ani
+8c321b46293e8d1a87195e5f61c645b4 Data/Animations/Nightmares/hot head.ani
+211a17bc5708b12f56d3ad9072830f4f Data/Animations/Nightmares/nightmare bat.ani
+2add3287ecdb26114210cc5dc1094633 Data/Animations/Nightmares/nightmare eye.ani
+7df61bb8e5c60d455ffd285579a40a4e Data/Animations/Nightmares/nightmare final.ani
+4d2ed75136f8daecc6c7f0194a66d0c5 Data/Animations/Nightmares/nightmare fireball.ani
+109672297c6c9897a66273a73918c34a Data/Animations/Nightmares/nightmare ganon weapon.ani
+92a2ff4261f410905d1785c499f187c0 Data/Animations/Nightmares/nightmare particle.ani
+59c2edd668f45150b24d999a94fdf87d Data/Animations/Nightmares/nightmare tail.ani
+0228b479505650e740269185fa8f9bde Data/Animations/Nightmares/nightmare.ani
+01b3d1658b9de6f600e31925961bf8f1 Data/Animations/Nightmares/slime eel.ani
+dc5888be1e212d21e9bf456227ce16a5 Data/Animations/Objects/bomb.ani
+445e92160e747258c135b46d66dd2908 Data/Animations/Objects/boomerang.ani
+3d1f94422d58ff1fb099aa4cf5d43a31 Data/Animations/Objects/d7 tower bottom.ani
+2168bc2dd6365e5c6030c999922aff4c Data/Animations/Objects/d7 tower top 1.ani
+c13d5da5f4f88a368f9ec70e635b9430 Data/Animations/Objects/d7 tower top 2.ani
+25ca0b7dc0e9a1e8ae07f62e810a65a1 Data/Animations/Objects/d7 tower.ani
+fc95c5cc7fc940c208a9095d6c87476d Data/Animations/Objects/dOneWay.ani
+47e5ac3c8b03a7fee7d390c2046c409b Data/Animations/Objects/dTeleporter.ani
+af7edb114cc2376a8ba4e41db244947f Data/Animations/Objects/dungeon color switch.ani
+410118750639f8833f3df9f1b29eadac Data/Animations/Objects/explosion.ani
+3e0b15a98fdc7580552fc60b2d9941b6 Data/Animations/Objects/holeTeleporter.ani
+86f820b18ae60d3a63993b5335ee2a1b Data/Animations/Objects/ice block.ani
+239be0403c39f4e9d0904d781f1f21bc Data/Animations/Objects/lamp_floor.ani
+6ba6023a6e7b362f2d1af203e5d2efe6 Data/Animations/Objects/lamp_torch.ani
+947d425274e1409114f16fb5f2d5bd43 Data/Animations/Objects/lamp_torch_blue.ani
+067025024981702dc35d36f3c34e2449 Data/Animations/Objects/lamp_wall.ani
+79f41a116c0c88959fbbfa91abc64881 Data/Animations/Objects/lamp_wall_1.ani
+020aa13444112890d0323a593b71b94c Data/Animations/Objects/lamp_wall_2.ani
+7792ccf6121fbf259750b5326cde4c52 Data/Animations/Objects/lava.ani
+8148142b9103da36fa110d69ad287909 Data/Animations/Objects/lava_2d.ani
+0b94cc637bd3cf9b23662af26df3e6b4 Data/Animations/Objects/raft.ani
+5a9b7150ed595f3b2022300a4547782b Data/Animations/Objects/shell_mansion_bar.ani
+3b8aca8ae6722e1dabd5f52174755c27 Data/Animations/Objects/spear.ani
+627b5511511f29dc70390f252fa8df5c Data/Animations/Objects/spikes.ani
+3021977e09d28aaa8b58e6a0aeb0af9f Data/Animations/Objects/sword spawn.ani
+069ca1a6012f1f6058dfcb61144d86c0 Data/Animations/Objects/sword.ani
+fe0c152b19835c4db7ea6897484cc96c Data/Animations/Objects/torch_d4.ani
+21433681c2f0dcf214fd2b35276f93a4 Data/Animations/Objects/torch_d4_d4.ani
+7e677f913b9dd427fa2eb3db4a96e755 Data/Animations/Objects/torch_d6.ani
+a9e70adeadf68765f10e58d9681b576c Data/Animations/Objects/torch_d8.ani
+6a49e27d2e2e84b0ef616ba7275fdf07 Data/Animations/Objects/weatherBird.ani
+09e174d9ca3ab367b68032ae3bb795bf Data/Animations/Particles/big_water_splash.ani
+9e5a1b6f1aa701d250565c55691d1c06 Data/Animations/Particles/buttonOrder.ani
+7e2b03fa60698021ca5107f69e6937bc Data/Animations/Particles/despawn.ani
+f21d0cb9bb37ef2b22d989378c366a8f Data/Animations/Particles/despawnParticle.ani
+013cf8085e490d4cebbde6d7a458dffe Data/Animations/Particles/explosion.ani
+66725e022fbf7b49d4ea3db85e448309 Data/Animations/Particles/explosion0.ani
+683134671302f991a9dd6d9141482a90 Data/Animations/Particles/explosionBomb.ani
+19d93d4e471e03eea9312f36abf6e197 Data/Animations/Particles/explosionRaccoon.ani
+e98b56c9ef3d25c73a113c4952501336 Data/Animations/Particles/fall.ani
+cbb71230a619036abc951625dec7a9ed Data/Animations/Particles/fishingSplash.ani
+18b3f7bb40afa858fa7842b7d0d785cf Data/Animations/Particles/flame.ani
+dfe2591001025d7fcac325f33aa68b1d Data/Animations/Particles/ice block despawn.ani
+d881d5fc5213c2d5da3f8e8443f39eb2 Data/Animations/Particles/pieceOfPowerExplosion.ani
+5cfd7dac5915d028fbffa94a7c9e34f9 Data/Animations/Particles/pieceOfPowerTrail.ani
+3a3f69c825e18668d6a41772a8d7233a Data/Animations/Particles/run.ani
+24e0be3fa95c11b2a33b77be01278b43 Data/Animations/Particles/shell_mansion_particle.ani
+64e28502490378e363bdcf25a49d8d8c Data/Animations/Particles/spawn.ani
+4ffd45fad53e92f4e335ccf9a3495604 Data/Animations/Particles/splash.ani
+f4e7ed0a0bae737d19c95ac73ace8c79 Data/Animations/Particles/swordPoke.ani
+7e2b03fa60698021ca5107f69e6937bc Data/Animations/Particles/swordShotDespawn.ani
+15b50b13d3ac146c2d46dad068c8ad17 Data/Animations/Sequences/beach_water.ani
+3a2d12bb9cba633fe2103072d3e35832 Data/Animations/Sequences/bowWow link.ani
+036660426375b4cae3a13e54dfbac6d2 Data/Animations/Sequences/bowWow.ani
+b6291c6da655c3b91fb3693a0fa0e818 Data/Animations/Sequences/castle frog boy.ani
+7e736232403f65b88ccc614ecb32d66b Data/Animations/Sequences/cliff sequence.ani
+ff842708b9fcd0d5f8c271c931ccb881 Data/Animations/Sequences/final fountain.ani
+a354c24c1e3c16d2879b5989470bd79b Data/Animations/Sequences/final star.ani
+b8c0fea83fc599f1bffd3cc3a4b56c85 Data/Animations/Sequences/link awake.ani
+48053a2694714f71cfd5408faabaaaec Data/Animations/Sequences/link castle.ani
+b5569720601a7ba7535c89351e47521d Data/Animations/Sequences/link final.ani
+3e8b64d1bf92e91ec54240df7928567f Data/Animations/Sequences/link grave.ani
+c332c12d30cb9dfa46b4a0f43573d85f Data/Animations/Sequences/seagull big final.ani
+19741395aea62d1cddf4837732e92f1f Data/Animations/Sequences/seagull final.ani
+6c17692faa3800c23ac4022a1385b456 Data/Animations/Sequences/seagull small.ani
+781b4a000ac017b2cb90a24f197e00d4 Data/Animations/Sequences/seagull.ani
+e31c2c105ff124ea467fdbb7ad9ec5cf Data/Animations/Sequences/tower dust.ani
+fd293e36d064086147b43965cdf3afb6 Data/Animations/Sequences/wale.ani
+5657d8f1417ecad9cb6753ffe00168bf Data/Animations/Sequences/water.ani
+5cc1a8823d0f853fa83c5f47e33a9197 Data/Animations/Sequences/weather bird link.ani
+333e1dcd808de55652ff70f9a2b189fa Data/Animations/Sequences/weather bird marin.ani
+72adf89b3ac89365214e7c8bea8b66fe Data/Animations/Sequences/weather bird objects.ani
+16b73883ba6c762d9f75c9fcb6937039 Data/Animations/Sequences/weather bird ulrich.ani
+76f52efc7211fb733dda7fde7759c310 Data/Animations/dialog_arrow.ani
+a9de83b89c09d2eade8b3ae616b0bd6f Data/Animations/dungeonPlayer.ani
+c98bfe1b0b30f33ab493792091d24ba6 Data/Animations/link fishing.ani
+34d9c4c578fef6f8d41efb6dfee4be6c Data/Animations/link0.ani
+0e20819227549b2fb7a8fad7541ce1df Data/Animations/mapPlayer.ani
+d95d0f6f504674b974c773b701e8f1fc Data/Animations/mapSelector.ani
+a2d47e6759fbb5dca16d2fbf204da5ea Data/Animations/menu_link.ani
+ea28e95e0947c8b9c8195b9bdcb65f17 Data/Dungeon/dColor_0.txt
+e7822e007def9c434811147f0412c7d3 Data/Dungeon/eight_0.txt
+8f62e7a47647b07008b8aba3cf3272b9 Data/Dungeon/five_0.txt
+3fd41b777daee407ce1a32e87e05da8b Data/Dungeon/four_0.txt
+dbd5314bbac41a7b1c1240fa2a51d40c Data/Dungeon/one_0.txt
+3350234291cedd9e80a1b15eee12e674 Data/Dungeon/seven_0.txt
+10158fe7c56f90b445265bc20eb3f316 Data/Dungeon/seven_1.txt
+9f8d4723829f11b4ee48cac2a40f9b58 Data/Dungeon/seven_2.txt
+96fb4991f218d60d9c3324d83ce2d258 Data/Dungeon/seven_2_alt.txt
+e4fb11cab490cd9a6da898b9008018b4 Data/Dungeon/seven_3.txt
+f5af9ba1b6fffbbcdee55ee0d42297fa Data/Dungeon/seven_3_alt.txt
+8a4038d426e57af1d75ae50c3a1b960c Data/Dungeon/six_0.txt
+2655511d37587bd37bcba952c4cd8261 Data/Dungeon/three_0.txt
+0ec375aecdda27a0b5d93043bdfce56a Data/Dungeon/three_1.txt
+b03d744d2ffed8953d316d69a49961c8 Data/Dungeon/three_2.txt
+a162b3ae09c0a90864f539d00c17674d Data/Dungeon/three_3.txt
+632629fa5bc0c3516ca683546d7650d5 Data/Dungeon/two_0.txt
+86751dfa0638c35995e8c8ff2ebd219b Data/Editor/editorIcons4x.atlas
+bec3b295a68c4718ccd112dc9b592cdd Data/Editor/editorIcons4x.png
+674f7a0dad8dad089c5be6c3f5e676c2 Data/Intro/cloud.png
+fc23afd7c20feb1f27de64c04c0e34c0 Data/Intro/intro.atlas
+5e3c2ad15fb639e0b391124563dadee1 Data/Intro/intro.png
+8034c1ba18c766b171314f2d7aa3fe4f Data/Intro/ocean.png
+41700ac1c2cdf0fd28e4ed06313c0580 Data/Intro/rain.png
+3b2be32e9076f50d1e912a570c0d52ce Data/Intro/waves.png
+4234bbf3c929b8a73c6449a0d0214647 Data/Languages/dialog_eng.lng
+e99f6fc16daab5f1f86d8ac9e20d4202 Data/Languages/eng.lng
+716047720c8956db5b27cccb69649080 Data/Light/doorLight.atlas
+2efd3f535a9388332ad395c1a29d76bc Data/Light/readme.txt
+be8def6bbf612393a8dd3b105e36c704 Data/Light/room blur.atlas
+ccf81d1d8ee5dbbc6b25ff2ed9cd14ad Data/Light/room blur.png
+898b9d3d31601d8151f12391a367643a Data/Map Objects/enemies.atlas
+6b38a150d5d6beabcc71cdc24c8a9594 Data/Map Objects/enemies.png
+7ae0253320673dd3d95287e513519658 Data/Map Objects/items.atlas
+dfe1cb79ad99a4d04e76e326fe89a333 Data/Map Objects/items.png
+93f70f55d6ac2193270ad947d714b535 Data/Map Objects/link0.atlas
+16f16f85c39ea39ccb3da5bb66a9c949 Data/Map Objects/link0.png
+92494c03dbd5af7be54518ada1485c7c Data/Map Objects/link_cloak.png
+1bdbf6c116ed388ceb511bb8e6acdb90 Data/Map Objects/midboss.atlas
+18fb4bc5b21058df70fdb96bf2253ecb Data/Map Objects/midboss.png
+be74aeb3b20affcee125853151c6edb3 Data/Map Objects/minimap.png
+fa505e17b9ddaed354d675c2b625538a Data/Map Objects/nightmares.atlas
+7c99fb40a862c7e0024ee636921a4d98 Data/Map Objects/nightmares.png
+a73d4c2db3ddbee85c7766ba2b507139 Data/Map Objects/npcs.atlas
+322aa65d5fee9c039d0d484090593790 Data/Map Objects/npcs.png
+e8b344eebe1d43f14156d4047184f383 Data/Map Objects/objects animated.atlas
+9ce9bc029bc5f2ce77e09c264552f05c Data/Map Objects/objects animated.png
+d9513c9724768711680ef0967bb4786e Data/Map Objects/objects.atlas
+5d13fb2a9df4bc06a7ca0680e5d38825 Data/Map Objects/objects.png
+f5bb271152b69920ac973b1927bc2bcb Data/Maps/0 test map - Copy (2).map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - Copy (2).map.data
+e90c677a5a46c8bb699bee1c2c5da234 Data/Maps/0 test map - Copy - Copy.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - Copy - Copy.map.data
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - Copy.map.data
+c61f1f192941d21e4f449e3300381c58 Data/Maps/0 test map - barrier.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - barrier.map.data
+202d0ae72cce8876827a31df51a8edce Data/Maps/0 test map - beamos.map
+7283dee7cc0e9bd0dbaddd089130c23b Data/Maps/0 test map - beamos.map.data
+f90ea01db2ffb997b365524f8a0a1b1f Data/Maps/0 test map - blured cave.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/0 test map - blured cave.map.data
+a67cc3b3f80a5e81f47ab81ac542178f Data/Maps/0 test map - color jump tile.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/0 test map - color jump tile.map.data
+dc8da9a34d9ac8a475674741d0b88c0f Data/Maps/0 test map - dialog.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - dialog.map.data
+acb135b1f01f2e7c9961267030cc7a8a Data/Maps/0 test map - enemies - damage - holes.map
+1a6cf9f46afe696c9628f275e9f378a1 Data/Maps/0 test map - enemies - damage - holes.map.data
+0f31d73cc017487fd4a3ac3a5a63010e Data/Maps/0 test map - enemies - damage.map
+1a6cf9f46afe696c9628f275e9f378a1 Data/Maps/0 test map - enemies - damage.map.data
+15b38b5210154676b3c07c470bbc02f0 Data/Maps/0 test map - enemies small.map
+0e9fafad7095c199e2d27d2be2f78121 Data/Maps/0 test map - enemies small.map.data
+67765f936108a6f1276fd11ef7902957 Data/Maps/0 test map - enemies.map
+452385a18e59d4fcf3e21fcbf4ff9ae2 Data/Maps/0 test map - enemies.map.data
+ba265bba31923b20e81d640e0b1555a5 Data/Maps/0 test map - fence.map
+44729a67e2731f5feaeb6ac8a4558ccd Data/Maps/0 test map - fence.map.data
+5e3c060d96f29174eaad4cc4af6260f4 Data/Maps/0 test map - floor layer.map
+172a3827718956d2590c17308c58d90a Data/Maps/0 test map - floor layer.map.data
+19370249a46808325e1a14676fcb1f51 Data/Maps/0 test map - gbs test.map
+e804031742292e10f739b9d48504ada7 Data/Maps/0 test map - gbs test.map.data
+c29fca1dbf892414310ec295d9a5745a Data/Maps/0 test map - holes.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - holes.map.data
+331a4e23a77697c2571f89b6bd8bd914 Data/Maps/0 test map - hookshot.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - hookshot.map.data
+34e5bea112e2846c9c1bdd52a1b60fc2 Data/Maps/0 test map - item test.map
+af391fcc8721703d6002b2f2675900fc Data/Maps/0 test map - item test.map.data
+f7b64eb7142974d58e7f88051193e554 Data/Maps/0 test map - kirby.map
+e7a699e7b65d12dbdd023151d56a8a02 Data/Maps/0 test map - kirby.map.data
+ae8d35bd1b5866977aee9311b0379514 Data/Maps/0 test map - levels.map
+0a8d2f0e0bd082424aaac22732e2fd90 Data/Maps/0 test map - levels.map.data
+84518d7f916826ce54727fde24ad55b5 Data/Maps/0 test map - mermaid.map
+513986929a444bb0442cf2fbec3a9dfb Data/Maps/0 test map - mermaid.map.data
+8a401506319174ef43ad5774a2e8d1ac Data/Maps/0 test map - music test.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/0 test map - music test.map.data
+7f80036756227d3cde481cf8c8ae249e Data/Maps/0 test map - new draw pool.map
+a98d74d89a5cdfffc51f4c21d01a3035 Data/Maps/0 test map - new draw pool.map.data
+4203d911445f3b40bcbfe1048511ba00 Data/Maps/0 test map - qicksand.map
+0a8d2f0e0bd082424aaac22732e2fd90 Data/Maps/0 test map - qicksand.map.data
+deab191be4fa7cec0e7857aae4a51a1e Data/Maps/0 test map - raft.map
+513986929a444bb0442cf2fbec3a9dfb Data/Maps/0 test map - raft.map.data
+924c41c0367ba76b22682258b445a0b1 Data/Maps/0 test map - rail jump.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - rail jump.map.data
+12498743353cc7d21f189ee000893eea Data/Maps/0 test map - sequence.map
+4f516f94187fed190c70e21a50fa1107 Data/Maps/0 test map - sequence.map.data
+f6a67ea4ffb023d9a7b676a14b37e54b Data/Maps/0 test map - sprites.map
+f1899c3e9f53cf224c45e3d3f80252a4 Data/Maps/0 test map - sprites.map.data
+459acbd6e2b0066ec898b8c8cbe6d389 Data/Maps/0 test map - stop music test.map
+5de49cffa1efdca099e663c4c628d505 Data/Maps/0 test map - stop music test.map.data
+4f9240f4a0a927ed6133658eeeffeccb Data/Maps/0 test map - transition bug.map
+bf14386e782a1d2c2441c6e909f509a9 Data/Maps/0 test map - transition bug.map.data
+7bb2de1e9eab727578041302390ff0a4 Data/Maps/0 test map - turtle head.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map - turtle head.map.data
+b29f287b1a704d4de782fc43be1def9b Data/Maps/0 test map - walrus.map
+51c4af788abc719fabd87285560b4ac5 Data/Maps/0 test map - walrus.map.data
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/0 test map color jump tile.map.data
+0a8d2f0e0bd082424aaac22732e2fd90 Data/Maps/0 test map levels.map.data
+a98d74d89a5cdfffc51f4c21d01a3035 Data/Maps/0 test map new draw pool.map.data
+0a8d2f0e0bd082424aaac22732e2fd90 Data/Maps/0 test map qicksand.map.data
+f5bb271152b69920ac973b1927bc2bcb Data/Maps/0 test map.map
+c42ad570a85c26aaf412b13bea23b307 Data/Maps/0 test map.map.data
+2953eb0ac8398522d45521ebc30b266c Data/Maps/Tilesets/blur tileset.png
+00ec16c3817e108dea0ddb0616b7e2ac Data/Maps/Tilesets/castle.png
+ca3bffe2578ede082ca379c05d7e3b90 Data/Maps/Tilesets/cave.png
+392dc0b07f526449578b11f9b1a06c1f Data/Maps/Tilesets/desertTempleTileset.png
+f9e24bff5084cc519ccf1035cb23218e Data/Maps/Tilesets/dreamShrineTileset.png
+95670665e5293b5d1572cbe3fd50d7d9 Data/Maps/Tilesets/dungeon 1.png
+3ee8def5cae7392cc8d39303500ec7c2 Data/Maps/Tilesets/dungeon 2.png
+022370b2c3284b8c1b07dab76daa7b9b Data/Maps/Tilesets/dungeon 3.png
+75591b2b15a69e652d74b03d5d5dd953 Data/Maps/Tilesets/dungeon 4.png
+b182c1ad6048854cd1703ba3992aba63 Data/Maps/Tilesets/dungeon 5.png
+6b43309ede330e4ab15cf4125bf0dfe3 Data/Maps/Tilesets/dungeon 6.png
+722c66fa789b6a62cf4870515955fb09 Data/Maps/Tilesets/dungeon 7.png
+42c72dd16a1a4d59636228bbf44ecd35 Data/Maps/Tilesets/dungeon 8.png
+24833afaeb25ff1caf3220ed36faa6d6 Data/Maps/Tilesets/dungeon color.png
+a80b9ae17f0d658e9e85a2ccfc2c56ee Data/Maps/Tilesets/egg.png
+b27718050a68f0572870be0c821e7720 Data/Maps/Tilesets/hole.png
+a53d3f18103c694738ec1c6960ce8a24 Data/Maps/Tilesets/house.png
+a23ac0544b0eacbe95a4187af73a1e9b Data/Maps/Tilesets/tileset 2d.png
+9816773a16fddd56223938478e6cc96d Data/Maps/Tilesets/tileset size.txt
+9f8889abcbc74febb54550f1724a77f4 Data/Maps/Tilesets/tileset0.png
+75ddfb8dabfc8cc75fe931449758a051 Data/Maps/bridge.map
+b95734cc565dac4f8e2e440154ec03d4 Data/Maps/bridge.map.data
+005ed332dea1b51eedd90519094e2670 Data/Maps/castle1.map
+31f30f912297b9e11eb126e727e32eea Data/Maps/castle1.map.data
+6d8d78b6e68481c17e74402b6ba0db04 Data/Maps/castle2.map
+4b0fb047674d30fb1d5edbb070f82aa5 Data/Maps/castle2.map.data
+08d724cd307e0a734616ad1612196185 Data/Maps/castleTunnel.map
+7d4be16a89e4a7638bb04acecd5695f3 Data/Maps/castleTunnel.map.data
+00f881030c7f5328f0de09cccf598685 Data/Maps/cave bird.map.data
+ad21130eebe73c33bcdb7bfe839ffe87 Data/Maps/cave rooster.map
+aab39060a8db26fc2f2a22b5b5ef42c4 Data/Maps/cave rooster.map.data
+f2429ec1179e3a53c639ef8cd01d66d2 Data/Maps/cave0.map
+a156e2bb01d6b1060ed31a1a76fcf897 Data/Maps/cave0.map.data
+07f1254efdc906eb1e1a6f4ce7be949b Data/Maps/cave1.map
+9ac42be1ed56b563d4234b671b43f982 Data/Maps/cave1.map.data
+6454f648372323983f3c04ded79c1c82 Data/Maps/cave10.map
+f0dbab0fce9e6719e19de685e8156ade Data/Maps/cave10.map.data
+1246c81110a59422ed42722d72254147 Data/Maps/cave11.map
+dc24a1341d1cb65b62440a9b02291112 Data/Maps/cave11.map.data
+b03fe985be772ca8fb7e7a9f40ae3390 Data/Maps/cave12.map
+4ff719c8ad8eacb414fd9c4fec0e1101 Data/Maps/cave12.map.data
+02ab4806b3aada913dd910fbc3c728a3 Data/Maps/cave13.map
+e1de40e462e5fd80edfb33fccf0400cc Data/Maps/cave13.map.data
+936d2b967c2d4c8dde752967a4611f85 Data/Maps/cave14.map
+2c5d2de8397c3d8a2d64104e5a2f0dee Data/Maps/cave14.map.data
+9cb1580cd911759f5a2dd84912b22820 Data/Maps/cave15.map
+01d128bf36c75f1f820384fb8750ee0d Data/Maps/cave15.map.data
+852d8e7a3b4d165dc69f28fef20d61f7 Data/Maps/cave16.map
+f56d99023045edc1b2cf68d92b4dbae4 Data/Maps/cave16.map.data
+f309db57d401b9e822987445b8a22720 Data/Maps/cave17.map
+8c165ceec6a6800fd4b21700134a3740 Data/Maps/cave17.map.data
+1d1788fe76de3df9378eded7ee7af917 Data/Maps/cave18.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/cave18.map.data
+2175eb06d30e721707faafee3a968c42 Data/Maps/cave19.map
+966184535b0329743d08f479f39162fb Data/Maps/cave19.map.data
+4d2b1c4631d2138aed2cb3717208c3a0 Data/Maps/cave2.map
+c52eca2873c781d0a1653e94b6b423d2 Data/Maps/cave2.map.data
+c7e850093196b5c7363d0eaad86faa54 Data/Maps/cave20.map
+7bd5d907744eb0051f1654562de04203 Data/Maps/cave20.map.data
+dc193dc0d4e77e207b63fc1d372f5ba1 Data/Maps/cave21.map
+ffa7562f59cb8587dd16e8bc8f93d741 Data/Maps/cave21.map.data
+23e219579b56a650503ac627dfdd65cd Data/Maps/cave22.map
+4ed5f5d066bf9e990a491ffa2cbb3476 Data/Maps/cave22.map.data
+6f324cd26e281744e9da7dcd88a80d9d Data/Maps/cave23.map
+b877d8f9cd982d102483392aa9f30998 Data/Maps/cave23.map.data
+a83c260eeaf14811a2bed3c5ebc4c99c Data/Maps/cave24.map
+a4fc96eade40e30fb378bddaad658ab5 Data/Maps/cave24.map.data
+e16c00af3942c8f4b73eac866f5ee5e4 Data/Maps/cave25.map
+9640756fd70e96568e69a7f346d0f9d7 Data/Maps/cave25.map.data
+b6fba92f37bdc063c453a66f38a886f8 Data/Maps/cave26.map
+15518686aa307d7ed34522cd9df1a021 Data/Maps/cave26.map.data
+e85e07b194fbcd33798aa5662c8d2c47 Data/Maps/cave27.map
+2d0804b5ca704ba7381ffa04fe1decbb Data/Maps/cave27.map.data
+66bd1a027b6737f68d0f9f56b44042bd Data/Maps/cave28.map
+da822a7c125130a4ccb9cda9be797ac2 Data/Maps/cave28.map.data
+d299785caf6845c0c5eb4cbdb4ff8138 Data/Maps/cave29.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/cave29.map.data
+775713b7441f3ca48b028c936df73af6 Data/Maps/cave3.map
+7bd5d907744eb0051f1654562de04203 Data/Maps/cave3.map.data
+5f7257b145547f0309815f04efb3f3c2 Data/Maps/cave30.map
+85749b165c763e17f9d39116aa62abe5 Data/Maps/cave30.map.data
+dee73452e9125d45236431a99267ec75 Data/Maps/cave31.map
+d3aa1b48b558514d9dd970ceac565a3b Data/Maps/cave31.map.data
+06fa069b76f3a5aa50337fc60b315541 Data/Maps/cave32.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/cave32.map.data
+60413cabaae2cc23854f0e381840807a Data/Maps/cave33.map
+c8700931c151a7b53cb3fefbbe053534 Data/Maps/cave33.map.data
+68f15158c88ac44709d432e5f87511d8 Data/Maps/cave3_2.map
+c7ca7acd256ca79ddf059a7e3c89fd4a Data/Maps/cave3_2.map.data
+327b5b37058c6121505f573214d4e422 Data/Maps/cave4.map
+3fcaf2ca6c288e408e15d0b79dc2c927 Data/Maps/cave4.map.data
+0947d683afe2da4cacfdde1677b8d8d5 Data/Maps/cave5.map
+69d7f23d09eb6deffe248dace4691fbf Data/Maps/cave5.map.data
+c0a81c02e429a3637f6c300ddef2af65 Data/Maps/cave6.map
+8ae2af0c36cd6ee3c7831528224dc31b Data/Maps/cave6.map.data
+208559bc33caf0edd13d5b5e2fad2cd9 Data/Maps/cave7.map
+7a0a8326a94d8c086da40513b37a3f3e Data/Maps/cave7.map.data
+e88f10217c1982fa656b5143e5f79e7a Data/Maps/cave7_2.map
+d146ef7d5fd6b03c883d9681ac402b0f Data/Maps/cave7_2.map.data
+f12e1fcbe8b79d44d4789c046eee6b04 Data/Maps/cave8.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/cave8.map.data
+d20b13009ebae856e331abda0f865c9d Data/Maps/cave9.map
+02accfb347abb3ee19ba6a8727f50f45 Data/Maps/cave9.map.data
+49dd302794f8b8e68518c2459dfec75a Data/Maps/caveBat1.map
+177be47306dc7b27c3ff596258a2bf31 Data/Maps/caveBat1.map.data
+347c2e7f4b6e342806895f926d42ac06 Data/Maps/caveBat2.map
+177be47306dc7b27c3ff596258a2bf31 Data/Maps/caveBat2.map.data
+fe7c0cd87dedb9340cd402a24b83b1b7 Data/Maps/caveBat3.map
+177be47306dc7b27c3ff596258a2bf31 Data/Maps/caveBat3.map.data
+2189120614523c6d3e53f4965b91fb3c Data/Maps/caveFairy1.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/caveFairy1.map.data
+1d07fcbec1361a3ce19f2863267d74e3 Data/Maps/caveFairy2.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/caveFairy2.map.data
+cf3a4bcf1e7754512d4404a4e6ef4ee7 Data/Maps/caveFairyMountain.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/caveFairyMountain.map.data
+27eaa8b56bfb6810ad2c410a3650fb87 Data/Maps/caveFrogs.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/caveFrogs.map.data
+3d7e08902d1f4c09a5acbe2f40e545a5 Data/Maps/caveMirror.map
+9f7554baa17e5f62c1513bc5d25dcd9c Data/Maps/caveMirror.map.data
+52aead16ca6c46be580026b9b46905f4 Data/Maps/caveTemple.map
+d870b18185074e2520f9a311412f2d8b Data/Maps/caveTemple.map.data
+b8eac3da60375ff948d2689a512b93bb Data/Maps/caveVillage.map
+fba32fa14f62d7ba03a3bbbffbe6d02c Data/Maps/caveVillage.map.data
+56484bf2ed715be601d1bbfed4fb6751 Data/Maps/desertTemple.map
+cef8de697b0f976800c578d6f00f8bbb Data/Maps/desertTemple.map.data
+d5187a456b6f2ae361b1595f6469663b Data/Maps/dreamShrine01.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/dreamShrine01.map.data
+a3213c0745f6757f8b36167f6c3a91de Data/Maps/dreamShrine02.map
+51c4af788abc719fabd87285560b4ac5 Data/Maps/dreamShrine02.map.data
+00f881030c7f5328f0de09cccf598685 Data/Maps/dungeon 7_2d.map.data
+4cd8fb02f12b83f3e8add8d4b2badc36 Data/Maps/dungeon1.map
+1256e2840196cd2ec8fc06f2645bc0ad Data/Maps/dungeon1.map.data
+4efc71b5674b7b85c3baaf95ed4e79ea Data/Maps/dungeon1_2d_1.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon1_2d_1.map.data
+0208952e120959959e77e7e2e2409f1b Data/Maps/dungeon1_2d_2.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon1_2d_2.map.data
+adfd264b7cde550997bb11088b9a6708 Data/Maps/dungeon2.map
+00122324cd87a5d15a2f48269a482cb2 Data/Maps/dungeon2.map.data
+15b90cb33f62cd82c6de5a0a73f199ef Data/Maps/dungeon2_2d_1.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon2_2d_1.map.data
+c3786daa2b62ce9bf35a108aad94dac1 Data/Maps/dungeon2_2d_2.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon2_2d_2.map.data
+26e4913c72c0f9b53743826481c1a5a1 Data/Maps/dungeon2_2d_3.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon2_2d_3.map.data
+5f3f12eb6e0cfdcd76070d7ea71e7890 Data/Maps/dungeon3_1.map
+f13bab43a336be930f548793be84f4f5 Data/Maps/dungeon3_1.map.data
+1adccb024a7be8829f332206699f0c2b Data/Maps/dungeon3_2.map
+9a0c348e3fe792aaa7012f1d1f7d8912 Data/Maps/dungeon3_2.map.data
+1d40e45b675e60805eec02a1ede4e148 Data/Maps/dungeon3_2d.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon3_2d.map.data
+5d246b61a1b4d4a56d4734cf83fd3f05 Data/Maps/dungeon3_3.map
+174834e422468d4780368714e36d1661 Data/Maps/dungeon3_3.map.data
+66aa72f7bf54237cd0d185273b73fa1c Data/Maps/dungeon3_4.map
+4258c1765d591031a98687077a30ff52 Data/Maps/dungeon3_4.map.data
+cbcb50cf6878c8d5aa268b68bf40b2b1 Data/Maps/dungeon4.map
+00122324cd87a5d15a2f48269a482cb2 Data/Maps/dungeon4.map.data
+ca3fe3d57b5ded78813b368c3f5241b4 Data/Maps/dungeon4_2d_1.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon4_2d_1.map.data
+833783283a5f23b1fd469ebc85ab4adc Data/Maps/dungeon4_2d_2.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon4_2d_2.map.data
+55d167173ba42b9c2eec77e5fcd6b87b Data/Maps/dungeon4_2d_3.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon4_2d_3.map.data
+9f25fe06708f232efa10192fd19ad454 Data/Maps/dungeon4_2d_4.map
+7bd5d907744eb0051f1654562de04203 Data/Maps/dungeon4_2d_4.map.data
+8d7afe2902841a1adf521d41d49c0ae9 Data/Maps/dungeon5.map
+4f0bae133ab7dc8fe1e5b281a8b0e7b5 Data/Maps/dungeon5.map.data
+82e3751e2126df88abc391b45f984d8f Data/Maps/dungeon5_2d_1.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon5_2d_1.map.data
+d225923ead093072d4b411928f565e5a Data/Maps/dungeon5_2d_2.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon5_2d_2.map.data
+7c9443b442675be5a8e299a23b9e8bc0 Data/Maps/dungeon5_2d_3.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon5_2d_3.map.data
+fb981d36eff1390f485d12854d0b0db2 Data/Maps/dungeon5_2d_4.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon5_2d_4.map.data
+acdaaa1ba81b3c551317bf55f4c2682b Data/Maps/dungeon5_entry.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon5_entry.map.data
+eb2501a6551343df11e91d104856cc4f Data/Maps/dungeon6.map
+9026c595edf704e867d54f3d8293858d Data/Maps/dungeon6.map.data
+5c828451ec45455036afc5207f82b3f6 Data/Maps/dungeon6_2d_1.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon6_2d_1.map.data
+88e7e61f85de21baabc24d98101b9721 Data/Maps/dungeon6_2d_2.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon6_2d_2.map.data
+929bebc91a6b4fe8b0bc484c8f42f88a Data/Maps/dungeon6_2d_3.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon6_2d_3.map.data
+cbced5dbc34a777ef1dbea628b93fc3a Data/Maps/dungeon7_1.map
+485ae00971422e80a8b6d55af8470d22 Data/Maps/dungeon7_1.map.data
+0027d145ae74b0263d7f9c6a74f39167 Data/Maps/dungeon7_2.map
+174834e422468d4780368714e36d1661 Data/Maps/dungeon7_2.map.data
+b3e673e04d967549601874b02d537bb9 Data/Maps/dungeon7_2d.map
+ccaa4ae3b4e758ba22aa6576e52f2655 Data/Maps/dungeon7_2d.map.data
+abc53d4dc68e1d08f6a6e7b5cf5afcaf Data/Maps/dungeon7_3.map
+174834e422468d4780368714e36d1661 Data/Maps/dungeon7_3.map.data
+c980273292694277437cebcfaafb6259 Data/Maps/dungeon7_4.map
+174834e422468d4780368714e36d1661 Data/Maps/dungeon7_4.map.data
+e976237404fc9f844a170e5d87d33555 Data/Maps/dungeon8.map
+f890ec24c546ff75c596c57b8149118a Data/Maps/dungeon8.map.data
+a80ba56902b06d81c5d62fbef5af57c9 Data/Maps/dungeon8_2d_1.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon8_2d_1.map.data
+cb2915b17063c1e619ab5803bf793fec Data/Maps/dungeon8_2d_2.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon8_2d_2.map.data
+2c6654e10945c31df48fba6b4bcb1b26 Data/Maps/dungeon8_2d_3.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon8_2d_3.map.data
+8df091681d02fffb08173bd40edaefab Data/Maps/dungeon8_2d_4.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon8_2d_4.map.data
+bc0a6945a2cdb83a870a7e46a5becf75 Data/Maps/dungeon8_2d_5.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon8_2d_5.map.data
+c8d1cdac0fdd426f0c865cfaa83c9d42 Data/Maps/dungeon8_2d_6.map
+f8bd1171672db1ffd9e7e57d1047dd1d Data/Maps/dungeon8_2d_6.map.data
+3b42aafe6402e913a98a0a290b4eb6f5 Data/Maps/dungeon_color.map
+41fbc7c06b64b5fcb7816831085c3c93 Data/Maps/dungeon_color.map.data
+00f881030c7f5328f0de09cccf598685 Data/Maps/dungeon_end.map.data
+06df4fbb1b477b7bd5ec8435d49e6456 Data/Maps/egg_boss_room.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/egg_boss_room.map.data
+53f247d42eec8502e3edd61a3b173546 Data/Maps/egg_entry.map
+fa1009a8066eba4d92f737a2a2bdbb70 Data/Maps/egg_entry.map.data
+254d39a84a60666c718d95da4ff5394a Data/Maps/egg_lower_floor.map
+c73f043429af745586311a0d2caa14b2 Data/Maps/egg_lower_floor.map.data
+57f0fee0d8124e3679d9559591d1ec42 Data/Maps/final stairs.map
+194bb747019b5b4108071e7a22ca621b Data/Maps/final stairs.map.data
+2bb652f0b56b00939aa74ee7fceb888e Data/Maps/hauntedhouse.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/hauntedhouse.map.data
+3a9e8e4ea70a1e9981b6e4ab48a340ca Data/Maps/helphouse1.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse1.map.data
+deda69d8e32ab9ee0f3cccf89e8162a4 Data/Maps/helphouse2.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse2.map.data
+b4fc020ab6a8d51193ea56cc44c48e10 Data/Maps/helphouse3.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse3.map.data
+52740822613f0b51d5bca20769d275c0 Data/Maps/helphouse4.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse4.map.data
+4c1992c7393ccb4da604be3a727c052c Data/Maps/helphouse5.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse5.map.data
+e12946ce482c91d2510bf8b9f8c32946 Data/Maps/helphouse6.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse6.map.data
+d98d321b68e890095970fb669409f7b0 Data/Maps/helphouse7.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse7.map.data
+a8497d27ff92f78e595a8c5037b58e69 Data/Maps/helphouse8.map
+a083e44a77504b108d7b61ab48f5d9ae Data/Maps/helphouse8.map.data
+e3245d59719afba66d4b2d17f3c44d9a Data/Maps/house mountain.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house mountain.map.data
+98dd4cc115418c521a3fceb3ffa35d43 Data/Maps/house raft.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house raft.map.data
+2b79a8cba3af233ac63a28f2a7c27ae2 Data/Maps/house1.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house1.map.data
+db63fceaf085e54088d3cb9fa5f651e5 Data/Maps/house10.map
+103f014f2bf4b8ae7aff11a1a42283fb Data/Maps/house10.map.data
+87f2701d8fb0369fffe238b6215f111b Data/Maps/house11.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house11.map.data
+3f13fd2b73ae8ee3c821de4414bb3c24 Data/Maps/house12.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house12.map.data
+c4c035568991920be4ae9b79ed5c3eb7 Data/Maps/house13.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house13.map.data
+e759e15c1846d71a738ea778f0e58a51 Data/Maps/house14.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house14.map.data
+0779bf0793025021a62c3c1c08282c9b Data/Maps/house2.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house2.map.data
+e28c13afe62e0a558f66ea38d4f91b49 Data/Maps/house3m.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house3m.map.data
+76a9d9e9e54ac9072e861b9e60257279 Data/Maps/house3n.map
+658dc42149e71fae66dcf59ac56e5b40 Data/Maps/house3n.map.data
+390c372d9ff4bbe5d3526efb2a474fe8 Data/Maps/house4.map
+e290e540613ed833740f7b2eac63f60a Data/Maps/house4.map.data
+a3cdbe8174ac1fe454c9cbdfb140e0d0 Data/Maps/house6.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house6.map.data
+6500160467fb28ef2039962d1cbde4c4 Data/Maps/house7.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house7.map.data
+b35257b86c0ca89757c4667fb7bf3745 Data/Maps/house8.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house8.map.data
+6eaf3e54a002a19f4cbbc2cb32b69e0d Data/Maps/house9.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/house9.map.data
+f2ee1728eaeb0b1c4167284fb439cab2 Data/Maps/library.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/library.map.data
+818c1302092309391290e5bc66334739 Data/Maps/overworld.map
+d3775ba7ec13ece873a92aba2bef485d Data/Maps/overworld.map.data
+72796bcb3b501450a26e1e6b64458ca7 Data/Maps/photoHouse.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/photoHouse.map.data
+82cb382dee3bebe8f456a72406b21a39 Data/Maps/pond.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/pond.map.data
+968f270f1bace832a84f10644e78023d Data/Maps/shellhouse.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/shellhouse.map.data
+eb322634def8a980cc07393762267907 Data/Maps/shop1.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/shop1.map.data
+fcda9997589959b9b9b66fec8ba81773 Data/Maps/shop2.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/shop2.map.data
+0483df38f480b2a1e3088bdfa24ce936 Data/Maps/shop3.map
+8e706c7b43ac89105c8e5207e2b24519 Data/Maps/shop3.map.data
+e5f8bc6ce561e31ecb4255f1b43837c1 Data/Maps/underwater fish.map
+8f4ae6118f1f12ecd4307572ac9f3637 Data/Maps/underwater fish.map.data
+e45f48015f276e5e4a7e2252422a8ce2 Data/Music/awakening.gbs
+b0e3cbf7e8d1e2b6c9b131fbde9e86a6 Data/Photo Mode/photos.atlas
+ce249cc9ca95c4990e077ff81c17b627 Data/Photo Mode/photos.png
+ee1c6f5f9b204c196170c6a7b16e1433 Data/Sequences/end sequence.atlas
+47899acebe0380852a94d86456b0a195 Data/Sequences/end sequence.png
+7ec72094e4661ff442e19a090e75625f Data/Sequences/game sequences.atlas
+84ebb1b116ad4129b6019242e1bae4ba Data/Sequences/game sequences.png
+6e5e4d8410615a6506cc842803b2c930 Data/Sequences/thanos noise.png
+cafca0ba784423b0450cbd8f38b478ba Data/Sequences/wind fish.atlas
+75fb3a366b7cb019904e304d0104f49e Data/Sequences/wind fish.png
+34714373203a28a4495a29d69e099090 Data/musicOverworld.data
+9fd93289a7487cf36fe53c240e75de6b Data/scripts.zScript
+3df9ff8c1c8b96b34b3732f56e01b74a Data/ui.atlas
+32d0033dad9249b4c32c7397dfe49bc2 Data/ui.png

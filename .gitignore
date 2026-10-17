@@ -1,0 +1,11 @@
+.DS_Store
+.vs/
+.vscode/
+**/bin/
+**/obj/
+# Game copies, reference builds and device logs (copyrighted / local only).
+/local/
+/vita/build/
+/importer/target/
+/dist/
+*.vpk

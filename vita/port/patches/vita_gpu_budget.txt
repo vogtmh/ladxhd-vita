@@ -1,0 +1,18 @@
+Vita GPU budget: the UI blur is rendered at a quarter of the width and height. It is sampled with filtering and
+scaled to the screen, so it looks nearly the same while the passes cost a fraction of the memory bandwidth.
+(The shadow buffer keeps its original size at 4x, half the screen: smaller buffers made moving shadows flicker.
+Below 4x it would grow to the full screen, which costs three full-screen passes, so it stays at half there too.)
+
+FILE Game1.cs
+FIND
+            var blurScale = MathHelper.Clamp(MapManager.Camera.Scale / 2, 1, 10);
+REPLACE
+            var blurScale = MathHelper.Clamp(MapManager.Camera.Scale / 2, 1, 10) * 4;
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+            var shadowScale = MathHelper.Clamp(MapManager.Camera.Scale / 2, 1, 10);
+REPLACE
+            var shadowScale = Math.Max(2f, MathHelper.Clamp(MapManager.Camera.Scale / 2, 1, 10));
+END
