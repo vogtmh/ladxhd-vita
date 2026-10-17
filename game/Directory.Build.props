@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <GameVersion>2.0.9</GameVersion>
+    <Version>$(GameVersion)</Version>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <CheckEolWorkloads>false</CheckEolWorkloads>
+  </PropertyGroup>
+</Project>

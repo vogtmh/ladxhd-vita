@@ -1,0 +1,72 @@
+Vita GPU budget: without colour correction the final render target is only copied to the back buffer, so the
+UI is drawn straight into the back buffer instead. That saves one full-screen pass per frame. The blur source is
+then not flipped, as the original comment says it is correct when drawing directly to the back buffer.
+
+FILE Game1.cs
+FIND
+            _firstFrameDrawn = true;
+REPLACE
+            _firstFrameDrawn = true;
+
+            // The frame starts on the back buffer, so this is its viewport.
+            var startViewport = Graphics.GraphicsDevice.Viewport;
+            _directPresent = !GameSettings.ColorCorrection && _finalRenderTarget != null &&
+                             startViewport.X == 0 && startViewport.Y == 0 &&
+                             startViewport.Width == _finalRenderTarget.Width && startViewport.Height == _finalRenderTarget.Height;
+END
+
+FILE Game1.cs
+FIND
+            Graphics.GraphicsDevice.SetRenderTarget(_finalRenderTarget);
+            Graphics.GraphicsDevice.Clear(Color.Black);
+REPLACE
+            Graphics.GraphicsDevice.SetRenderTarget(_directPresent ? null : _finalRenderTarget);
+            Graphics.GraphicsDevice.Clear(Color.Black);
+END
+
+FILE Game1.cs
+FIND
+            // Present to backbuffer (with or without colour correction).
+            Graphics.GraphicsDevice.SetRenderTarget(null);
+            Graphics.GraphicsDevice.Viewport = backBufferViewport;
+            Graphics.GraphicsDevice.Clear(Color.Black);
+
+            // Apply GBC Color Correction if the user enabled it.
+            var doColorCorrect = GameSettings.ColorCorrection && _finalRenderTarget != null ? Resources.ColorCorrect : null;
+
+            // Draw the final render target.
+            SpriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doColorCorrect);
+            SpriteBatch.Draw(_finalRenderTarget, new Rectangle(0, 0, backBufferViewport.Width, backBufferViewport.Height), Color.White);
+            SpriteBatch.End();
+REPLACE
+            if (!_directPresent)
+            {
+                Graphics.GraphicsDevice.SetRenderTarget(null);
+                Graphics.GraphicsDevice.Viewport = backBufferViewport;
+                Graphics.GraphicsDevice.Clear(Color.Black);
+
+                var doColorCorrect = GameSettings.ColorCorrection && _finalRenderTarget != null ? Resources.ColorCorrect : null;
+
+                SpriteBatch.Begin(SpriteSortMode.Immediate, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doColorCorrect);
+                SpriteBatch.Draw(_finalRenderTarget, new Rectangle(0, 0, backBufferViewport.Width, backBufferViewport.Height), Color.White);
+                SpriteBatch.End();
+            }
+END
+
+FILE Game1.cs
+FIND
+        private void BlurImage()
+        {
+REPLACE
+        private bool _directPresent;
+
+        private void BlurImage()
+        {
+END
+
+FILE Game1.cs
+FIND
+            var verticalFlipBlur = PlatformWindow.VerticalFlipBlur ? SpriteEffects.FlipVertically : SpriteEffects.None;
+REPLACE
+            var verticalFlipBlur = PlatformWindow.VerticalFlipBlur && !_directPresent ? SpriteEffects.FlipVertically : SpriteEffects.None;
+END

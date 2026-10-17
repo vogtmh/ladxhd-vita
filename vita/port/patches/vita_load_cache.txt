@@ -1,0 +1,171 @@
+Vita map load speed: leaving a house rebuilt the whole overworld from scratch, which took 4-5 s on the Vita.
+Most of the time went into re-parsing the same text files and into garbage collections caused by that garbage.
+- Animation files are parsed once. Every LoadAnimator call still gets its own Animator and Animation objects
+  (playback state, LoopCount is changed at runtime), but the read-only Frame arrays are shared.
+- Large maps (the overworld) keep their parsed tiles and object list. A reload copies them instead of
+  re-parsing 439 KB of text. Objects are still created fresh on every visit, so enemies and bushes reset as before.
+
+FILE InGame/SaveLoad/AnimatorSaveLoad.cs
+FIND
+        public static Animator LoadAnimatorFile(string filePath, bool redux = false)
+        {
+REPLACE
+        private static readonly System.Collections.Generic.Dictionary<string, Animator> _animatorTemplates =
+            new System.Collections.Generic.Dictionary<string, Animator>();
+
+        public static Animator LoadAnimatorFile(string filePath, bool redux = false)
+        {
+            var key = redux ? filePath + "|redux" : filePath;
+            if (!_animatorTemplates.TryGetValue(key, out var template))
+            {
+                template = ParseAnimatorFile(filePath, redux);
+                _animatorTemplates[key] = template;
+            }
+            if (template == null)
+                return null;
+
+            var animator = new Animator();
+            animator.SpritePath = template.SpritePath;
+            animator.SprTexture = Resources.GetTexture(template.SpritePath);
+            if (animator.SprTexture == null)
+                return null;
+
+            foreach (var source in template.Animations)
+            {
+                var animation = new Animation(source.Id)
+                {
+                    Frames = source.Frames,
+                    Offset = source.Offset,
+                    NextAnimation = source.NextAnimation,
+                    LoopCount = source.LoopCount,
+                    AnimationLeft = source.AnimationLeft,
+                    AnimationRight = source.AnimationRight,
+                    AnimationTop = source.AnimationTop,
+                    AnimationBottom = source.AnimationBottom,
+                    AnimationWidth = source.AnimationWidth,
+                    AnimationHeight = source.AnimationHeight
+                };
+                animator.Animations.Add(animation);
+            }
+            return animator;
+        }
+
+        private static Animator ParseAnimatorFile(string filePath, bool redux)
+        {
+END
+
+FILE InGame/SaveLoad/SaveLoadMap.cs
+FIND
+        public static void LoadMapFile(string fileName, Map.Map map)
+        {
+            var ap = GameFS.ToAssetPath(fileName);
+REPLACE
+        private sealed class CachedMap
+        {
+            public bool HasOffset;
+            public int OffsetX;
+            public int OffsetY;
+            public string TilesetPath;
+            public int[,,] Tiles;
+            public GameObjectItem[] Objects;
+            public GameObjectItem[] ObjectsB;
+            public string[,] DigMap;
+        }
+
+        // Only maps this large are worth keeping parsed (in practice just the overworld, ~3 MB).
+        private const int MapCacheMinObjects = 4000;
+        private static readonly Dictionary<string, CachedMap> _mapCache = new Dictionary<string, CachedMap>();
+
+        private static object[] CloneParameter(object[] parameter)
+        {
+            if (parameter == null)
+                return null;
+            var copy = (object[])parameter.Clone();
+            for (var i = 0; i < copy.Length; i++)
+                if (copy[i] is Array array)
+                    copy[i] = array.Clone();
+            return copy;
+        }
+
+        private static GameObjectItem[] CloneItems(List<GameObjectItem> items)
+        {
+            var copy = new GameObjectItem[items.Count];
+            for (var i = 0; i < copy.Length; i++)
+                copy[i] = new GameObjectItem(items[i].Index, CloneParameter(items[i].Parameter));
+            return copy;
+        }
+
+        private static void LoadCachedMap(CachedMap cached, string fileName, Map.Map map)
+        {
+            map.Reset();
+            map.MapFileName = fileName;
+
+            if (cached.HasOffset)
+            {
+                map.MapOffsetX = cached.OffsetX;
+                map.MapOffsetY = cached.OffsetY;
+            }
+
+            var tileSize = 16;
+            if (Resources.TilesetSizes.ContainsKey(cached.TilesetPath))
+                tileSize = Resources.TilesetSizes[cached.TilesetPath];
+            map.TileMap.TilesetPath = cached.TilesetPath;
+            map.TileMap.SetTileset(Resources.GetTexture(cached.TilesetPath), tileSize);
+            map.TileMap.BlurLayer = true;
+            map.TileMap.ArrayTileMap = (int[,,])cached.Tiles.Clone();
+
+            CreateEmptyHoleMap(map.HoleMap, map.MapWidth, map.MapHeight);
+            map.HoleMap.SetTileset(Resources.GetTexture("hole.png"));
+            map.StateMap = new MapStates.FieldStates[map.MapWidth, map.MapHeight];
+            map.UpdateMap = new int[map.MapWidth, map.MapHeight];
+
+            map.Objects.Clear();
+            foreach (var item in cached.Objects)
+                MapData.AddObject(map, new GameObjectItem(item.Index, CloneParameter(item.Parameter)), false);
+            foreach (var item in cached.ObjectsB)
+                MapData.AddObject(map, new GameObjectItem(item.Index, CloneParameter(item.Parameter)), true);
+
+            map.DigMap = (string[,])cached.DigMap.Clone();
+        }
+
+        public static void LoadMapFile(string fileName, Map.Map map)
+        {
+            if (_mapCache.TryGetValue(fileName, out var cachedMap))
+            {
+                LoadCachedMap(cachedMap, fileName, map);
+                return;
+            }
+
+            var ap = GameFS.ToAssetPath(fileName);
+END
+
+FILE InGame/SaveLoad/SaveLoadMap.cs
+FIND
+            if (GameFS.Exists(digPath))
+                map.DigMap = DataMapSerializer.LoadData(digPath);
+            else
+                map.DigMap = new string[map.MapWidth, map.MapHeight];
+        }
+REPLACE
+            if (GameFS.Exists(digPath))
+                map.DigMap = DataMapSerializer.LoadData(digPath);
+            else
+                map.DigMap = new string[map.MapWidth, map.MapHeight];
+
+            // Copied before any object is created from the list (GetGameObject writes into the parameters).
+            if (map.Objects.ObjectList.Count + map.Objects.ObjectListB.Count >= MapCacheMinObjects)
+            {
+                _mapCache[fileName] = new CachedMap
+                {
+                    HasOffset = fileVersion > 2,
+                    OffsetX = map.MapOffsetX,
+                    OffsetY = map.MapOffsetY,
+                    TilesetPath = map.TileMap.TilesetPath,
+                    Tiles = (int[,,])map.TileMap.ArrayTileMap.Clone(),
+                    Objects = CloneItems(map.Objects.ObjectList),
+                    ObjectsB = CloneItems(map.Objects.ObjectListB),
+                    DigMap = (string[,])map.DigMap.Clone()
+                };
+            }
+        }
+END

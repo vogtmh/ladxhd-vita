@@ -1,0 +1,20 @@
+[package]
+name = "ladxhd-vita-importer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+color_quant = "2.0.0"
+dirs = "7.0.0"
+eframe = "0.37.0"
+flate2 = "1.1.10"
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+md-5 = "0.11.0"
+png = "0.18.1"
+rfd = "0.17.2"
+ureq = "3.4.2"
+zip = { version = "9.0.4", default-features = false, features = ["deflate-flate2"] }
+
+[build-dependencies]
+flate2 = "1.1.10"
+zip = { version = "9.0.4", default-features = false, features = ["deflate-flate2"] }

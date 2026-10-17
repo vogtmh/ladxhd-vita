@@ -1,0 +1,29 @@
+# LADXHD derived-file map (compiled / .xnb)
+# Format: <source file><TAB><derived file> <derived file> ...
+# Source = a file present in the v1.0.0 release. Each derived name is
+# produced by applying the patch <derived name>.vcdiff to that source.
+eng.lng	chn.lng deu.lng esp.lng fre.lng ind.lng ita.lng por.lng pte.lng rus.lng swe.lng achieve_chn.lng achieve_deu.lng achieve_eng.lng achieve_esp.lng achieve_fre.lng achieve_ind.lng achieve_ita.lng achieve_por.lng achieve_pte.lng achieve_rus.lng achieve_swe.lng
+dialog_eng.lng	dialog_chn.lng dialog_deu.lng dialog_esp.lng dialog_fre.lng dialog_ind.lng dialog_ita.lng dialog_por.lng dialog_pte.lng dialog_rus.lng dialog_swe.lng
+smallFont.xnb	smallFont_redux.xnb smallFont_vwf.xnb smallFont_vwf_redux.xnb smallFont_chn.xnb smallFont_chn_0.xnb smallFont_chn_redux.xnb smallFont_chn_redux_0.xnb
+menuBackground.xnb	menuBackgroundB.xnb menuBackgroundC.xnb sgb_border.xnb
+ligth room.xnb	mamuLight.xnb
+link0.png	link1.png weapons.png
+link0.atlas	weapons.atlas
+npcs.png	npcs_redux.png
+items.png	items_chn.png items_deu.png items_esp.png items_fre.png items_ind.png items_ita.png items_por.png items_rus.png items_swe.png items_redux.png items_redux_chn.png items_redux_deu.png items_redux_esp.png items_redux_fre.png items_redux_ind.png items_redux_ita.png items_redux_por.png items_redux_rus.png items_redux_swe.png
+intro.png	intro_chn.png intro_deu.png intro_esp.png intro_fre.png intro_ind.png intro_ita.png intro_por.png intro_rus.png intro_swe.png
+intro.atlas	intro_chn.atlas
+minimap.png	minimap_chn.png minimap_deu.png minimap_esp.png minimap_fre.png minimap_ind.png minimap_ita.png minimap_por.png minimap_rus.png minimap_swe.png
+objects.png	objects_chn.png objects_deu.png objects_esp.png objects_fre.png objects_ind.png objects_ita.png objects_por.png objects_rus.png objects_swe.png
+photos.png	photos_chn.png photos_deu.png photos_esp.png photos_fre.png photos_ind.png photos_ita.png photos_por.png photos_rus.png photos_swe.png photos_redux.png photos_redux_chn.png photos_redux_deu.png photos_redux_esp.png photos_redux_fre.png photos_redux_ind.png photos_redux_ita.png photos_redux_por.png photos_redux_rus.png photos_redux_swe.png
+ui.png	ui_chn.png ui_deu.png ui_esp.png ui_fre.png ui_ind.png ui_ita.png ui_por.png ui_rus.png ui_swe.png
+musicOverworld.data	musicOverworldClassic.data
+dungeon3_1.map	dungeon3.map
+dungeon3_1.map.data	dungeon3.map.data
+bridge.map	bridge_l_castle.map bridge_r_castle.map
+bridge.map.data	bridge_l_castle.map.data bridge_r_castle.map.data
+BowWow.ani	bowwow_water.ani
+mapPlayer.ani	mapDungeon.ani mapManboPond.ani mapTeleporter.ani
+boomerang.ani	boomerangOrig.ani
+explosion0.ani	bushExplosion.ani fireballDeath.ani
+ShockEffect.xnb	GBCColorCorrection.xnb PixelGrid.xnb

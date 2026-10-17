@@ -1,0 +1,5 @@
+# Vita patches and the CRLF map data must stay byte-exact.
+*.vcdiff binary
+importer/resources/d3map binary
+importer/resources/d3mapdata binary
+*.sh text eol=lf

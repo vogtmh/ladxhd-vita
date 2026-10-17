@@ -1,0 +1,128 @@
+Vita map transitions: managed threads run inline on this port, so the "background" map load used to run on the
+first frame of the walk-out, with the music still playing. It now runs once the screen is fully covered by the
+transition. Collections only happen at that point: before the load if memory is short, and afterwards, while
+the screen is still covered, when that is cheap (a small map was loaded) or memory runs low.
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+        private Thread _loadingThread;
+REPLACE
+        private Thread _loadingThread;
+        private string _deferredMapFile;
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+                MapManager.ObjLink.UpdateMapTransitionOut(1);
+
+                // new map is loaded?
+REPLACE
+                MapManager.ObjLink.UpdateMapTransitionOut(1);
+
+                if (_deferredMapFile != null)
+                {
+                    var mapFile = _deferredMapFile;
+                    _deferredMapFile = null;
+                    // Makes room for the load; collections only run at these transition points.
+                    GC.TryStartNoGCRegion(48 * 1024 * 1024);
+                    ThreadLoading(mapFile);
+                }
+
+                // new map is loaded?
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+                    FinishLoading();
+                    CurrentState = TransitionState.TransitionBlank_1;
+REPLACE
+                    FinishLoading();
+                    // The previous map stays referenced as NextMap until the next load; drop its objects
+                    // (~50 MB for the overworld) so the collection below can free them.
+                    var previousMap = Game1.GameManager.MapManager.NextMap;
+                    if (previousMap != null && previousMap != Game1.GameManager.MapManager.CurrentMap)
+                    {
+                        previousMap.Objects.ReleaseObjects();
+                        previousMap.Objects = new ObjectManager(previousMap);
+                    }
+                    // Collecting is cheap after loading a small map (little is live) and expensive after the
+                    // overworld, so the overworld only collects when memory is running low.
+                    var isLargeMap = Game1.GameManager.MapManager.CurrentMap.Objects.ObjectList.Count >= 4000;
+                    GC.Collect(isLargeMap ? 0 : 1);
+                    CurrentState = TransitionState.TransitionBlank_1;
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+            _loadingThread = new Thread(o => ThreadLoading(mapFileName));
+            _loadingThread.Start();
+REPLACE
+            _deferredMapFile = mapFileName;
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+                Thread.Sleep(75);
+
+REPLACE
+END
+
+The collector is conservative: one stray pointer to any object of the old map kept the whole map alive
+(object -> position listener -> pool -> every object), so entering a house sometimes freed nothing and the next
+exit had to collect. Emptying the old manager's lists and pools limits a stray pointer to a single object.
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+        private void ClearPools()
+        {
+REPLACE
+        public void ReleaseObjects()
+        {
+            Clear();
+            ClearPools();
+            SpawnObjects.Clear();
+            DeleteObjects.Clear();
+            _freezePersistObjects.Clear();
+            _updateGameObjects.Clear();
+            _damageFieldObjects.Clear();
+            _drawShadowObjects.Clear();
+            _overlapObjects.Clear();
+            _depthObjectList.Clear();
+            _objectTypeList.Clear();
+            _objectTagAllList.Clear();
+            _collisionObjects.Clear();
+            _collidingObjects.Clear();
+            _lightObjectList.Clear();
+            _carriableObjectList.Clear();
+            _hittableObjectList.Clear();
+            _pushableObjectList.Clear();
+            _interactableObjectList.Clear();
+            _scrollTileObjects.Clear();
+            _updateGameObjectsSet.Clear();
+            _collidingObjectsSet.Clear();
+            _damageFieldObjectsSet.Clear();
+            db_damageList.Clear();
+            db_bodyList.Clear();
+            db_gameObjectList.Clear();
+
+            // Persistent objects (Link, followers) may still hold position listeners into these pools, so the
+            // tiles are emptied rather than removed.
+            if (_gameObjectPool != null)
+            {
+                _gameObjectPool.NoneTiledObjects.Clear();
+                foreach (var tile in _gameObjectPool.ComponentTiles)
+                    tile.GameObjects.Clear();
+            }
+            foreach (var drawPool in new[] { _drawPool, _drawPoolB })
+            {
+                if (drawPool == null)
+                    continue;
+                drawPool.NoneTiledObjects.Clear();
+                foreach (var tile in drawPool.ComponentTiles)
+                    tile.DrawComponents.Clear();
+            }
+        }
+
+        private void ClearPools()
+        {
+END
