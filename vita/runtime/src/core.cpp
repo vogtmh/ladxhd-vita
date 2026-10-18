@@ -5,6 +5,9 @@
 #include <cstring>
 #include <cwctype>
 #include <string>
+#if defined(__vita__)
+#include <malloc.h>
+#endif
 
 extern "C" {
 void GC_init(void);
@@ -26,11 +29,20 @@ void rt_log(const char*);
 // grow any further (max_retries).
 namespace {
 size_t g_heapLimit = 160u << 20;
+bool g_enforceLimit = false;
 size_t heapInUse() { return GC_get_heap_size() - GC_get_free_bytes(); }
 void* outOfMemory(size_t bytes) {
-    char msg[160];
-    std::snprintf(msg, sizeof msg, "out of memory: %u KB requested, heap %u MB, free blocks %u MB", (unsigned)(bytes >> 10),
-                  (unsigned)(GC_get_heap_size() >> 20), (unsigned)(GC_get_free_bytes() >> 20));
+    char msg[200];
+    int n = std::snprintf(msg, sizeof msg, "out of memory: %u KB requested, heap %u MB, free blocks %u MB",
+                          (unsigned)(bytes >> 10), (unsigned)(GC_get_heap_size() >> 20),
+                          (unsigned)(GC_get_free_bytes() >> 20));
+#if defined(__vita__)
+    struct mallinfo mi = mallinfo();
+    std::snprintf(msg + n, sizeof msg - n, ", malloc arena %u MB, used %u MB", (unsigned)(mi.arena >> 20),
+                  (unsigned)(mi.uordblks >> 20));
+#else
+    (void)n;
+#endif
     rt_log(msg);
     return nullptr;
 }
@@ -40,10 +52,23 @@ namespace rt {
 void Init() { GC_init(); }
 void ConfigureCollector(size_t heapLimit, bool enforceLimit) {
     g_heapLimit = heapLimit;
+    g_enforceLimit = enforceLimit;
     if (enforceLimit) GC_set_max_heap_size(heapLimit);
     GC_set_disable_automatic_collection(1);
     GC_set_max_retries(3);
     GC_set_oom_fn(outOfMemory);
+}
+void* AllocFailed(size_t n, bool atomic) {
+    // Free memory can be too fragmented for a large block even after collecting; the newlib heap has room left.
+    static bool grown = false;
+    if (g_enforceLimit && !grown) {
+        grown = true;
+        GC_set_max_heap_size(g_heapLimit + (16u << 20));
+        rt_log("gc: heap limit raised by 16 MB");
+        if (void* p = GcAlloc(n, atomic)) return p;
+    }
+    rt_log("out of memory, giving up");
+    __builtin_trap();
 }
 void Collect() {
     size_t before = heapInUse();

@@ -12,8 +12,20 @@
 extern "C" {
 void* GC_malloc(size_t);
 void* GC_malloc_atomic(size_t);
+void* GC_malloc_ignore_off_page(size_t);
+void* GC_malloc_atomic_ignore_off_page(size_t);
 void* GC_malloc_uncollectable(size_t);
 }
+
+namespace rt {
+// Arrays are referenced through their start, so a large one only needs a first page without false references.
+inline void* GcAlloc(size_t n, bool atomic) {
+    if (n >= 64 * 1024) return atomic ? GC_malloc_atomic_ignore_off_page(n) : GC_malloc_ignore_off_page(n);
+    return atomic ? GC_malloc_atomic(n) : GC_malloc(n);
+}
+// Grows the heap past its limit once; aborts with a log entry if that doesn't help.
+void* AllocFailed(size_t n, bool atomic);
+}  // namespace rt
 
 namespace System {
 
@@ -30,8 +42,16 @@ enum class BindingFlags : int32_t;
 }  // namespace Reflection
 enum class StringSplitOptions : int32_t;
 
-inline void* gc_alloc(size_t n) { return GC_malloc(n); }
-inline void* gc_alloc_atomic(size_t n) { void* p = GC_malloc_atomic(n); std::memset(p, 0, n); return p; }
+inline void* gc_alloc(size_t n) {
+    void* p = rt::GcAlloc(n, false);
+    return p ? p : rt::AllocFailed(n, false);
+}
+inline void* gc_alloc_atomic(size_t n) {
+    void* p = rt::GcAlloc(n, true);
+    if (!p) p = rt::AllocFailed(n, true);
+    std::memset(p, 0, n);
+    return p;
+}
 
 [[noreturn]] void ThrowNullReference();
 [[noreturn]] void ThrowIndexOutOfRange();
