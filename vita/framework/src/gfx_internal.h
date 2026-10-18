@@ -75,6 +75,9 @@ bool beReadBackBuffer(int w, int h, uint8_t* rgbaTopDown);
 void ensureLoaded(Texture* t);
 // Set while constructing a texture whose GPU storage is created later by ensureLoaded.
 extern bool deferTextureCreation;
+// The DefaultColorProcessors on raw RGBA bytes.
+void zeroTransparentPixels(uint8_t* rgba, size_t bytes);
+void premultiplyAlpha(uint8_t* rgba, size_t bytes);
 Program* spriteProgram();
 Program* effectProgram(Effect* e);
 RenderTarget2D* currentTarget();

@@ -17,6 +17,7 @@ size_t GC_get_free_bytes(void);
 void GC_set_disable_automatic_collection(int);
 void GC_set_max_retries(unsigned long);
 unsigned long GC_get_full_gc_total_time(void);
+void GC_set_oom_fn(void* (*)(size_t));
 void rt_log(const char*);
 }
 
@@ -26,6 +27,13 @@ void rt_log(const char*);
 namespace {
 size_t g_heapLimit = 160u << 20;
 size_t heapInUse() { return GC_get_heap_size() - GC_get_free_bytes(); }
+void* outOfMemory(size_t bytes) {
+    char msg[160];
+    std::snprintf(msg, sizeof msg, "out of memory: %u KB requested, heap %u MB, free blocks %u MB", (unsigned)(bytes >> 10),
+                  (unsigned)(GC_get_heap_size() >> 20), (unsigned)(GC_get_free_bytes() >> 20));
+    rt_log(msg);
+    return nullptr;
+}
 }  // namespace
 
 namespace rt {
@@ -35,14 +43,16 @@ void ConfigureCollector(size_t heapLimit, bool enforceLimit) {
     if (enforceLimit) GC_set_max_heap_size(heapLimit);
     GC_set_disable_automatic_collection(1);
     GC_set_max_retries(3);
+    GC_set_oom_fn(outOfMemory);
 }
 void Collect() {
     size_t before = heapInUse();
     unsigned long t0 = GC_get_full_gc_total_time();
     GC_gcollect();
     char msg[160];
-    std::snprintf(msg, sizeof msg, "gc: %lu ms, heap %zu MB, in use %zu -> %zu MB", GC_get_full_gc_total_time() - t0,
-                  GC_get_heap_size() >> 20, before >> 20, heapInUse() >> 20);
+    // The Vita printf has no %zu.
+    std::snprintf(msg, sizeof msg, "gc: %lu ms, heap %u MB, in use %u -> %u MB", GC_get_full_gc_total_time() - t0,
+                  (unsigned)(GC_get_heap_size() >> 20), (unsigned)(before >> 20), (unsigned)(heapInUse() >> 20));
     rt_log(msg);
 }
 // GC.Collect(generation): 2 always collects, 1 collects above 40% of the heap limit (a cheap moment: little is

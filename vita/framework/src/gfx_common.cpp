@@ -268,16 +268,10 @@ static void initStates() {
     RasterizerState::CullNone->cull = CullMode::None;
     RasterizerState::CullCounterClockwise = keep(New<RasterizerState>());
     DefaultColorProcessors::ZeroTransparentPixels = keep(Fn<void(Array1<uint8_t>*)>::Make([](Array1<uint8_t>* d) {
-        for (int32_t i = 0; i + 3 < d->length; i += 4)
-            if (d->data[i + 3] == 0) d->data[i] = d->data[i + 1] = d->data[i + 2] = 0;
+        fw::gfx::zeroTransparentPixels(d->data, (size_t)d->length);
     }));
     DefaultColorProcessors::PremultiplyAlpha = keep(Fn<void(Array1<uint8_t>*)>::Make([](Array1<uint8_t>* d) {
-        for (int32_t i = 0; i + 3 < d->length; i += 4) {
-            uint32_t a = d->data[i + 3];
-            d->data[i] = (uint8_t)((d->data[i] * a + 127) / 255);
-            d->data[i + 1] = (uint8_t)((d->data[i + 1] * a + 127) / 255);
-            d->data[i + 2] = (uint8_t)((d->data[i + 2] * a + 127) / 255);
-        }
+        fw::gfx::premultiplyAlpha(d->data, (size_t)d->length);
     }));
 }
 

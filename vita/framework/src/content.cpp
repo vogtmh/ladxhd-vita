@@ -20,6 +20,18 @@ namespace fw {
 LoadStats loadStats;
 namespace gfx {
 bool deferTextureCreation = false;
+void zeroTransparentPixels(uint8_t* d, size_t n) {
+    for (size_t i = 0; i + 3 < n; i += 4)
+        if (d[i + 3] == 0) d[i] = d[i + 1] = d[i + 2] = 0;
+}
+void premultiplyAlpha(uint8_t* d, size_t n) {
+    for (size_t i = 0; i + 3 < n; i += 4) {
+        uint32_t a = d[i + 3];
+        d[i] = (uint8_t)((d[i] * a + 127) / 255);
+        d[i + 1] = (uint8_t)((d[i + 1] * a + 127) / 255);
+        d[i + 2] = (uint8_t)((d[i + 2] * a + 127) / 255);
+    }
+}
 void ensureLoaded(Texture* t) {
     if (!t || !t->pendingImage) return;
     auto* bytes = t->pendingImage;
@@ -35,11 +47,20 @@ void ensureLoaded(Texture* t) {
         plat::logf("could not decode deferred image %dx%d\n", t->width, t->height);
         return;
     }
-    auto* arr = Array1<uint8_t>::New(w * h * 4);
-    std::memcpy(arr->data, px, (size_t)w * h * 4);
+    // Decoded in malloc memory: a block this large can fail in a full, fragmented GC heap.
+    size_t n = (size_t)w * h * 4;
+    if (proc == DefaultColorProcessors::ZeroTransparentPixels) {
+        zeroTransparentPixels(px, n);
+    } else if (proc == DefaultColorProcessors::PremultiplyAlpha) {
+        premultiplyAlpha(px, n);
+    } else if (proc) {
+        auto* arr = Array1<uint8_t>::New(w * h * 4);
+        std::memcpy(arr->data, px, n);
+        proc->Invoke(arr);
+        std::memcpy(px, arr->data, n);
+    }
+    beUpload(t, 0, 0, w, h, px);
     stbi_image_free(px);
-    if (proc) proc->Invoke(arr);
-    beUpload(t, 0, 0, w, h, arr->data);
     gpuStats.uploadSeconds += plat::timeSeconds() - t0;
 }
 }  // namespace gfx

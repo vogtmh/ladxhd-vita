@@ -306,9 +306,9 @@ void Game::Run() {
             static size_t lastTotal = 0;
             size_t total = GC_get_total_bytes();
             char msg[200];
-            std::snprintf(msg, sizeof msg, "mem %ld: gc heap %zu KB, free %zu KB, allocated %zu KB, textures %zu KB",
-                          fw::frameCounter, GC_get_heap_size() / 1024, GC_get_free_bytes() / 1024, (total - lastTotal) / 1024,
-                          fw::gfx::textureBytes / 1024);
+            std::snprintf(msg, sizeof msg, "mem %ld: gc heap %u KB, free %u KB, allocated %u KB, textures %u KB",
+                          fw::frameCounter, (unsigned)(GC_get_heap_size() / 1024), (unsigned)(GC_get_free_bytes() / 1024),
+                          (unsigned)((total - lastTotal) / 1024), (unsigned)(fw::gfx::textureBytes / 1024));
             lastTotal = total;
             fw::plat::log(msg);
         }
