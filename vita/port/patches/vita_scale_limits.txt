@@ -10,7 +10,7 @@ FIND
 REPLACE
             MaxGameScale = Math.Min(max_game_scale, 4);
             PixelGridAlpha = pixel_grid_alpha;
-            GameSettings.GameScale = MaxGameScale + 1;
+            GameSettings.GameScale = 3;
 END
 
 FILE InGame/Pages/Settings/VideoSettingsPage.cs

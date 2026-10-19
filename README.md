@@ -79,6 +79,8 @@ To update, install a newer VPK over the old one. Saves and settings are kept.
   whatever language is selected. All other languages are available.
 - Saves, settings and a log file (`log.txt`) are stored in `ux0:data/ladxhd/`.
 - *Settings → Video → Performance Overlay* shows frame times on screen.
+- New installations default to 3x game scale. Updates preserve your saved scale; 1x shows more of the world
+  and can reduce performance on the Vita.
 
 ## Repository layout
 
@@ -131,6 +133,14 @@ version. Update it for each release, then run `importer/release.sh`. The script 
 the Vita executable before packaging all five importer archives. Both `importer/release.sh` and
 `vita/tools/package_vita.sh` also accept a release-version argument to override the tracked default.
 The executable writes its embedded release and game versions at the start of `log.txt`.
+
+To run the desktop runtime collection regression tests from the repository root:
+
+```sh
+cmake -S vita -B vita/build/desktop -DLADX_BUILD_TESTS=ON
+cmake --build vita/build/desktop --target runtime_collections_test -j
+ctest --test-dir vita/build/desktop --output-on-failure
+```
 
 Changes to the game code go into `vita/port/patches/*.txt` (applied by the transpiler) or
 `vita/port/bodies/` (C++ replacements for single methods), never into `game/`.

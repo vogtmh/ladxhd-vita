@@ -370,6 +370,37 @@ struct Dictionary__ValueCollection final : Object, virtual IReadOnlyCollection<V
     It end();
 };
 
+template <class T>
+struct DictionaryStorage final : Object {
+    static constexpr int32_t PageLength = 255;
+    int32_t length = 0;
+    struct Data {
+        T* contiguous = nullptr;
+        T** pages = nullptr;
+        T& operator[](int32_t index) {
+            return contiguous ? contiguous[index] : pages[index / PageLength][index % PageLength];
+        }
+    } data;
+
+    static DictionaryStorage* New(int32_t length) {
+        auto* storage = new DictionaryStorage();
+        storage->length = length;
+        auto allocate = [](int32_t count) {
+            size_t bytes = sizeof(T) * (size_t)count;
+            return (T*)(is_atomic_v<T> ? gc_alloc_atomic(bytes) : gc_alloc(bytes));
+        };
+        if (length <= PageLength) {
+            storage->data.contiguous = allocate(length);
+        } else {
+            int32_t pageCount = (length - 1) / PageLength + 1;
+            storage->data.pages = (T**)gc_alloc(sizeof(T*) * (size_t)pageCount);
+            for (int32_t page = 0; page < pageCount; ++page)
+                storage->data.pages[page] = allocate(std::min(PageLength, length - page * PageLength));
+        }
+        return storage;
+    }
+};
+
 template <class K, class V>
 struct Dictionary : Object, virtual IReadOnlyCollection<KeyValuePair<K, V>>, virtual ICollection<KeyValuePair<K, V>> {
     struct Entry {
@@ -378,8 +409,8 @@ struct Dictionary : Object, virtual IReadOnlyCollection<KeyValuePair<K, V>>, vir
         K key;
         V value;
     };
-    Array1<int32_t>* buckets = nullptr;
-    Array1<Entry>* entries = nullptr;
+    DictionaryStorage<int32_t>* buckets = nullptr;
+    DictionaryStorage<Entry>* entries = nullptr;
     int32_t count = 0;
     int32_t freeList = -1;
     int32_t freeCount = 0;
@@ -409,14 +440,14 @@ struct Dictionary : Object, virtual IReadOnlyCollection<KeyValuePair<K, V>>, vir
     static int32_t prime(int32_t min);
     void initialize(int32_t cap) {
         int32_t size = prime(cap);
-        buckets = Array1<int32_t>::New(size);
-        entries = Array1<Entry>::New(size);
+        buckets = DictionaryStorage<int32_t>::New(size);
+        entries = DictionaryStorage<Entry>::New(size);
         freeList = -1;
     }
     void resize() {
         int32_t newSize = prime(count * 2);
-        auto* nb = Array1<int32_t>::New(newSize);
-        auto* ne = Array1<Entry>::New(newSize);
+        auto* nb = DictionaryStorage<int32_t>::New(newSize);
+        auto* ne = DictionaryStorage<Entry>::New(newSize);
         for (int32_t i = 0; i < count; i++) ne->data[i] = entries->data[i];
         for (int32_t i = 0; i < count; i++) {
             if (ne->data[i].next >= -1) {

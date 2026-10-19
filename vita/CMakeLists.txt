@@ -107,3 +107,12 @@ endif()
 target_compile_definitions(ladxhd PRIVATE
   LADX_RELEASE_VERSION="${LADX_RELEASE_VERSION}"
   LADX_GAME_VERSION="${LADX_GAME_VERSION}")
+
+option(LADX_BUILD_TESTS "Build desktop runtime regression tests" OFF)
+if(LADX_BUILD_TESTS AND NOT VITA_BUILD)
+  enable_testing()
+  add_executable(runtime_collections_test runtime/tests/collections.cpp)
+  target_link_libraries(runtime_collections_test PRIVATE runtime)
+  target_compile_options(runtime_collections_test PRIVATE -O2 -UNDEBUG)
+  add_test(NAME runtime_collections COMMAND runtime_collections_test)
+endif()
