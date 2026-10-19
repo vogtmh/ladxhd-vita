@@ -100,8 +100,8 @@ static void initAutomation() {
     perfStat = true;
 #else
     perfStat = std::getenv("LADX_PERF") != nullptr;
-#endif
     overlay::enabled = perfStat;
+#endif
     stats.start = plat::timeSeconds();
 }
 // Select+L+R on the pad or F3 on the keyboard toggles the overlay; Select+Triangle (F4) cycles gfx debug modes.

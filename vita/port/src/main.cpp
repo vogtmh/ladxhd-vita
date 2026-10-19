@@ -19,7 +19,7 @@ static void frameHook() {
     if (Game1::GbsPlayer) Game1::GbsPlayer->UpdateThread();
 }
 
-extern "C" const char* rt_game_version() { return "2.0.8"; }
+extern "C" const char* rt_game_version() { return LADX_GAME_VERSION; }
 
 #if !defined(__vita__)
 #include <csignal>
@@ -38,6 +38,7 @@ static String* MapPathIdentity(String* p) { return p; }
 
 int main(int argc, char** argv) {
     fw::plat::preInit();
+    fw::plat::logf("LADXHD Vita release %s (game %s)\n", LADX_RELEASE_VERSION, rt_game_version());
 #if !defined(__vita__)
     std::signal(SIGSEGV, crashHandler);
     std::signal(SIGBUS, crashHandler);

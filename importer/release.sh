@@ -1,14 +1,13 @@
 #!/bin/zsh
 # Builds the importer for macOS (universal app), Linux and Windows (x86_64 + arm64) into dist/<release>/.
-# Usage: release.sh [release name, e.g. 2.0.9b; defaults to the game version]
-# Needs the staged Vita build (vita/tools/package_vita.sh), the rustup targets and zig + cargo-zigbuild.
+# Usage: release.sh [release name, e.g. 2.0.9c; defaults to vita/RELEASE_VERSION]
+# Builds and stages the Vita executable first; needs the rustup targets and zig + cargo-zigbuild.
 set -e
 here=${0:A:h}
 cd $here
 export PATH="$HOME/.cargo/bin:$PATH"
-version=$(sed -n 's:.*<GameVersion>\(.*\)</GameVersion>.*:\1:p' ../game/Directory.Build.props)
-release=${1:-$version}
-[[ -f ../vita/build/vita/vpk/eboot.bin ]] || { echo "Run vita/tools/package_vita.sh first."; exit 1; }
+release=${1:-$(< ../vita/RELEASE_VERSION)}
+../vita/tools/package_vita.sh "$release"
 name=ladxhd-vita-importer
 dist=${here:h}/dist/$release
 rm -rf $dist

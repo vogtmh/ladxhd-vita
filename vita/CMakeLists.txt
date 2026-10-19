@@ -9,6 +9,17 @@ endif()
 
 project(ladxhd C CXX)
 
+file(STRINGS "${CMAKE_SOURCE_DIR}/RELEASE_VERSION" DEFAULT_RELEASE_VERSION LIMIT_COUNT 1)
+if(NOT DEFINED LADX_RELEASE_VERSION)
+  set(LADX_RELEASE_VERSION "${DEFAULT_RELEASE_VERSION}")
+endif()
+file(READ "${CMAKE_SOURCE_DIR}/../game/Directory.Build.props" GAME_PROPS)
+string(REGEX MATCH "<GameVersion>([^<]+)</GameVersion>" GAME_VERSION_MATCH "${GAME_PROPS}")
+set(LADX_GAME_VERSION "${CMAKE_MATCH_1}")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${CMAKE_SOURCE_DIR}/RELEASE_VERSION"
+  "${CMAKE_SOURCE_DIR}/../game/Directory.Build.props")
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
@@ -92,3 +103,7 @@ else()
   target_compile_options(ladxhd PRIVATE -fwrapv -w)
   target_link_libraries(ladxhd PRIVATE gamecode framework runtime bdwgc)
 endif()
+
+target_compile_definitions(ladxhd PRIVATE
+  LADX_RELEASE_VERSION="${LADX_RELEASE_VERSION}"
+  LADX_GAME_VERSION="${LADX_GAME_VERSION}")

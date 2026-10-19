@@ -121,10 +121,16 @@ The importer binary ends up in `importer/target/release/ladxhd-vita-importer`. I
 from step 3 at compile time; without it, it can only write game files (`--tree`).
 
 `importer/release.sh` builds the release archives for macOS, Windows and Linux (x86_64 and arm64) into
-`dist/<version>/`. It runs on macOS and needs the Vita build from step 3, the Rust targets
+`dist/<version>/`. It runs on macOS, rebuilds the Vita executable, and needs the Rust targets
 (`rustup target add x86_64-apple-darwin x86_64-pc-windows-gnu aarch64-pc-windows-gnullvm
 aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu`), [zig](https://ziglang.org) and
 [cargo-zigbuild](https://github.com/rust-cross/cargo-zigbuild).
+
+The Vita release version is tracked in `vita/RELEASE_VERSION`, separately from the upstream game
+version. Update it for each release, then run `importer/release.sh`. The script rebuilds and stages
+the Vita executable before packaging all five importer archives. Both `importer/release.sh` and
+`vita/tools/package_vita.sh` also accept a release-version argument to override the tracked default.
+The executable writes its embedded release and game versions at the start of `log.txt`.
 
 Changes to the game code go into `vita/port/patches/*.txt` (applied by the transpiler) or
 `vita/port/bodies/` (C++ replacements for single methods), never into `game/`.
