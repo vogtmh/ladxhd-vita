@@ -1,13 +1,62 @@
-// On-screen performance overlay drawn with a tiny built-in 3x5 pixel font (no assets needed).
 #include "gfx_internal.h"
+#include "overlay.h"
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdio>
 #include <cstring>
-#include <string>
 #include <vector>
 
 namespace fw::overlay {
 
-bool enabled = false;
-static std::vector<std::string> lines;
+static int mode = 0;
+static int lastMode = 1;
+static Sample current;
+static std::array<Sample, 60> history;
+static size_t historyCount = 0;
+static size_t historyNext = 0;
+static std::vector<gfx::Vertex> vertices;
+static constexpr uint32_t white = 0xFFF4F7F4u;
+static constexpr uint32_t muted = 0xFFCFD3CAu;
+static constexpr uint32_t green = 0xFFA6E691u;
+static constexpr uint32_t orange = 0xFF8AC1FFu;
+static constexpr uint32_t red = 0xFF8080FFu;
+
+bool active() { return mode != 0; }
+int getMode() { return mode; }
+void setMode(int value) {
+    mode = value >= 0 && value <= 3 ? value : 0;
+    if (mode) lastMode = mode;
+}
+void cycle() {
+    mode = (mode + 1) % 4;
+    if (mode) lastMode = mode;
+}
+void setEnabled(bool on) {
+    if (on && !mode) mode = lastMode;
+    if (!on) mode = 0;
+}
+void record(const Sample& sample) {
+    current = sample;
+    history[historyNext] = sample;
+    historyNext = (historyNext + 1) % history.size();
+    historyCount = std::min(historyCount + 1, history.size());
+}
+static uint32_t fpsColor(const Sample& sample) {
+    double ratio = sample.fps / std::max(1.0, sample.targetFps);
+    return ratio >= 0.95 ? green : ratio >= 0.75 ? orange : red;
+}
+static uint32_t memoryColor(const Sample& sample) {
+    if (!sample.memoryBudget) return muted;
+    double ratio = (double)sample.memoryUsed / sample.memoryBudget;
+    return ratio < 0.8 ? green : ratio < 0.9 ? orange : red;
+}
+static void quad(float left, float top, float width, float height, uint32_t color, float slant = 0) {
+    vertices.push_back({left + slant, top, color, 0, 0});
+    vertices.push_back({left + width + slant, top, color, 1, 0});
+    vertices.push_back({left, top + height, color, 0, 1});
+    vertices.push_back({left + width, top + height, color, 1, 1});
+}
 
 // Rows of 3 bits, MSB = left column.
 struct Glyph {
@@ -28,42 +77,106 @@ static const Glyph kFont[] = {
     {'%', {5, 1, 2, 4, 5}}, {'|', {2, 2, 2, 2, 2}},
 };
 
-void setLines(std::vector<std::string> l) { lines = std::move(l); }
-
-void draw(int w, int h) {
-    if (!enabled || lines.empty()) return;
-    const int px = 3, advance = 4 * px, lineH = 7 * px, pad = 6;
-    size_t maxLen = 0;
-    for (auto& l : lines) maxLen = std::max(maxLen, l.size());
-    std::vector<gfx::Vertex> v;
-    auto quad = [&](float x, float y, float qw, float qh, uint32_t color) {
-        v.push_back({x, y, color, 0, 0});
-        v.push_back({x + qw, y, color, 1, 0});
-        v.push_back({x, y + qh, color, 0, 1});
-        v.push_back({x + qw, y + qh, color, 1, 1});
-    };
-    // Packed ABGR, premultiplied alpha.
-    quad(0, 0, (float)(maxLen * advance + 2 * pad), (float)(lines.size() * lineH + 2 * pad), 0xB0000000u);
-    for (size_t li = 0; li < lines.size(); li++) {
-        float y0 = (float)(pad + li * lineH);
-        for (size_t ci = 0; ci < lines[li].size(); ci++) {
-            char c = lines[li][ci];
-            if (c >= 'a' && c <= 'z') c -= 32;
-            const Glyph* g = nullptr;
-            for (auto& f : kFont)
-                if (f.c == c) g = &f;
-            if (!g) continue;
-            float x0 = (float)(pad + ci * advance);
-            for (int r = 0; r < 5; r++)
-                for (int col = 0; col < 3; col++)
-                    if (g->rows[r] & (4 >> col)) quad(x0 + col * px, y0 + r * px, (float)px, (float)px, 0xFF40FF40u);
+static float text(float left, const char* value, float scale, uint32_t color) {
+    for (; *value; value++, left += 4 * scale) {
+        for (const auto& glyph : kFont) {
+            if (glyph.c != *value) continue;
+            for (int row = 0; row < 5; row++)
+                for (int column = 0; column < 3; column++)
+                    if (glyph.rows[row] & (4 >> column))
+                        quad(left + column * scale, 19 - 2.5f * scale + row * scale, scale, scale, color);
+            break;
         }
     }
-    gfx::drawOverlay(v.data(), (int)(v.size() / 4), w, h);
+    return left;
+}
+static float textWidth(const char* value, float scale) { return std::strlen(value) * 4 * scale - scale; }
+static void fpsGraph(float left, float width) {
+    quad(left, 7, width, 24, 0xFF26302Bu);
+    float step = width / history.size();
+    for (size_t index = 0; index < historyCount; index++) {
+        const auto& sample = history[(historyNext + history.size() - historyCount + index) % history.size()];
+        float height = 22 * std::clamp(sample.fps / std::max(1.0, sample.targetFps), 0.0, 1.0);
+        quad(left + (history.size() - historyCount + index) * step, 30 - height, std::max(1.0f, step), std::max(1.0f, height), fpsColor(sample));
+    }
+}
+static void memoryBar(float left, float width) {
+    int filled = current.memoryBudget ? (int)std::lround(10.0 * current.memoryUsed / current.memoryBudget) : 0;
+    float step = width / 10;
+    for (int index = 0; index < 10; index++) {
+        float start = left + index * step;
+        uint32_t color = index < filled ? memoryColor(current) : muted;
+        if (index < filled) quad(start, 10, step - 4, 18, color, 4);
+        else {
+            quad(start + 4, 10, step - 4, 1, color);
+            quad(start, 27, step - 4, 1, color);
+            quad(start, 10, 1, 18, color, 4);
+            quad(start + step - 5, 10, 1, 18, color, 4);
+        }
+    }
+}
+void draw(int width, int height) {
+    if (!active() || width <= 0) return;
+    vertices.clear();
+    char fps[32], ram[64], detail[128];
+    std::snprintf(fps, sizeof fps, "%.0f FPS", current.fps);
+    if (current.memoryBudget)
+        std::snprintf(ram, sizeof ram, "%s %u/%u MB", current.heapOnly ? "RAM HEAP" : "RAM", (unsigned)(current.memoryUsed >> 20), (unsigned)(current.memoryBudget >> 20));
+    else std::snprintf(ram, sizeof ram, "RAM N/A");
+    if (current.freeKnown)
+        std::snprintf(detail, sizeof detail, "UPD %.1f DRAW %.1f GC %uMB FREE %uMB VRAM %uMB", current.updateMs, current.drawMs, (unsigned)(current.gcHeap >> 20), (unsigned)(current.systemFree >> 20), (unsigned)(current.graphicsFree >> 20));
+    else
+        std::snprintf(detail, sizeof detail, "UPD %.1f  DRAW %.1f  GC %uMB  CALLS %d  RT %d", current.updateMs, current.drawMs, (unsigned)(current.gcHeap >> 20), current.draws, current.targets);
+    float scale = mode == 3 ? 2 : 3;
+    float graphWidth = 142, barWidth = 150, gap = 12, detailScale = 2;
+    if (mode == 3) {
+        graphWidth = 90;
+        barWidth = 110;
+        // 940 = 960 minus the 10 px padding on each side; six gaps and two 1 px dividers.
+        float slack = 940 - (textWidth(fps, scale) + textWidth(ram, 2) + textWidth(detail, 2) + graphWidth + barWidth + 2 + 6 * gap);
+        if (slack < 0) detailScale = std::max(1.0f, 2 + slack / (4 * std::strlen(detail) - 1));
+        else {
+            float graphExtra = std::min(slack / 2, 142 - graphWidth);
+            float barExtra = std::min(slack / 2, 150 - barWidth);
+            graphWidth += graphExtra;
+            barWidth += barExtra;
+            gap += (slack - graphExtra - barExtra) / 6;
+        }
+    }
+    // Width is fixed up once the content is laid out.
+    quad(0, 0, 960, 38, 0xDC12160Fu);
+    float right = text(10, fps, scale, mode == 1 ? white : fpsColor(current)) - scale;
+    if (mode > 1) {
+        float left = right + gap;
+        fpsGraph(left, graphWidth);
+        left += graphWidth + gap;
+        quad(left, 9, 1, 20, 0xFF46514Bu);
+        left += 1 + gap;
+        left = text(left, ram, 2, memoryColor(current)) - 2 + gap;
+        memoryBar(left, barWidth);
+        right = left + barWidth;
+        if (mode == 3) {
+            left = right + gap;
+            quad(left, 9, 1, 20, 0xFF46514Bu);
+            left += 1 + gap;
+            text(left, detail, detailScale, muted);
+        }
+    }
+    if (mode != 3) vertices[1].x = vertices[3].x = right + 10;
+    float originX = (960 - vertices[1].x) / 2;
+    float originY = height * 960.0f / width - 38;
+    float screenScale = width / 960.0f;
+    for (auto& vertex : vertices) {
+        vertex.x = (vertex.x + originX) * screenScale;
+        vertex.y = (vertex.y + originY) * screenScale;
+    }
+    gfx::drawOverlay(vertices.data(), (int)(vertices.size() / 4), width, height);
 }
 
 }  // namespace fw::overlay
 
 namespace fw {
-void setPerfOverlay(bool on) { overlay::enabled = on; }
+void setPerfOverlay(bool on) { overlay::setEnabled(on); }
+int getPerfOverlayMode() { return overlay::getMode(); }
+void setPerfOverlayMode(int value) { overlay::setMode(value); }
 }  // namespace fw

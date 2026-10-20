@@ -17,6 +17,7 @@ static SDL_AudioDeviceID audioDev = 0;
 static void (*mixFn)(int16_t*, int) = nullptr;
 
 void preInit() {}
+MemoryInfo memoryInfo() { return {}; }
 
 bool init(int width, int height, const char* title) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_INIT_TIMER) != 0) {

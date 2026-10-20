@@ -1,12 +1,14 @@
 // PS Vita platform layer: SceCtrl input, SceAudioOut, ux0: save data (graphics live in gfx_gxm.cpp).
 #include "platform.h"
 #include <psp2/apputil.h>
+#include <psp2/appmgr.h>
 #include <psp2/audioout.h>
 #include <psp2/ctrl.h>
 #include <psp2/io/fcntl.h>
 #include <psp2/io/stat.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
+#include <psp2/kernel/sysmem.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/power.h>
 #include <atomic>
@@ -14,6 +16,9 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <algorithm>
+#include <malloc.h>
+#include <unistd.h>
 
 extern "C" {
 int sceUserMainThreadStackSize = 8 * 1024 * 1024;
@@ -22,12 +27,42 @@ unsigned int _newlib_heap_size_user = 192 * 1024 * 1024;
 // bdwgc's NOSYS/ARM32 configuration reads the main stack bottom from here.
 void* __stack_base__ = nullptr;
 void GC_init(void);
+size_t GC_get_free_bytes(void);
 void GC_add_roots(void* low, void* high_plus_1);
 void GC_set_abort_func(void (*fn)(const char*));
 void GC_set_warn_proc(void (*fn)(char*, unsigned long));
 }
 
 namespace fw::plat {
+
+MemoryInfo memoryInfo() {
+    MemoryInfo result;
+    SceKernelFreeMemorySizeInfo free{};
+    free.size = sizeof free;
+    if (sceKernelGetFreeMemorySize(&free) >= 0) {
+        result.systemFree = std::max(0, free.size_user);
+        result.graphicsFree = std::max(0, free.size_cdram);
+        result.freeKnown = true;
+    }
+    SceAppMgrBudgetInfo budget{};
+    budget.size = sizeof budget;
+    if (sceAppMgrGetBudgetInfo(&budget) >= 0 && budget.total_user_rw_mem) {
+        result.budget = budget.total_user_rw_mem;
+        result.used = result.budget - std::min(result.budget, (size_t)budget.free_user_rw);
+        return result;
+    }
+    void* end = sbrk(0);
+    SceKernelMemBlockInfo block{};
+    block.size = sizeof block;
+    if (end != (void*)-1 && sceKernelGetMemBlockInfoByAddr((char*)end - 1, &block) >= 0) {
+        size_t committed = (uintptr_t)end - (uintptr_t)block.mappedBase;
+        size_t reusable = mallinfo().fordblks + GC_get_free_bytes();
+        result.budget = block.mappedSize;
+        result.used = std::min(result.budget, committed - std::min(committed, reusable));
+        result.heapOnly = true;
+    }
+    return result;
+}
 
 static SceUID audioThread = -1;
 static SceUID audioMutex = -1;

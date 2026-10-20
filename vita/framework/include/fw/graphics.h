@@ -412,4 +412,6 @@ void setBackBufferAsTarget(bool on);
 
 namespace fw {
 void setPerfOverlay(bool on);
+int getPerfOverlayMode();
+void setPerfOverlayMode(int value);
 }  // namespace fw

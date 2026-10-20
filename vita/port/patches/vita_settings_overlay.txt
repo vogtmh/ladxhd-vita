@@ -1,14 +1,17 @@
-Vita: the video settings get a "Performance Overlay" toggle (off by default, saved with the settings) in place of
-"Disable UI Blur", which does nothing on the Vita because the render path never blurs the UI. Select+L+R still
-toggles the overlay without changing the setting. The language files have no text for it, so it falls back to
-built-in English strings.
+Vita: the video settings get a saved Off/FPS Only/Monitor/Detailed selector in place of "Disable UI Blur".
+The native mode is shared with shortcut cycling. Legacy boolean settings migrate to Off or FPS Only.
+The language files have no text for it, so it falls back to built-in English strings.
 
 FILE InGame/Things/GameSettings.cs
 FIND
         public static bool    EpilepsySafe     =  false;
 REPLACE
         public static bool    EpilepsySafe     =  false;
-        public static bool    PerfOverlay      =  false;
+        public static int PerfOverlayMode
+        {
+            get => Game1.VitaPerfOverlayMode();
+            set => Game1.VitaSetPerfOverlayMode(value);
+        }
 END
 
 FILE InGame/Things/GameSettings.cs
@@ -16,8 +19,7 @@ FIND
             EpilepsySafe     =  false;
 REPLACE
             EpilepsySafe     =  false;
-            PerfOverlay      =  false;
-            Game1.VitaPerfOverlay(false);
+            PerfOverlayMode = 0;
 END
 
 FILE InGame/SaveLoad/SettingsSaveLoad.cs
@@ -25,8 +27,8 @@ FIND
             GameSettings.EpilepsySafe = saveManager.GetBool("EpilepsySafe", GameSettings.EpilepsySafe);
 REPLACE
             GameSettings.EpilepsySafe = saveManager.GetBool("EpilepsySafe", GameSettings.EpilepsySafe);
-            GameSettings.PerfOverlay = saveManager.GetBool("PerfOverlay", GameSettings.PerfOverlay);
-            Game1.VitaPerfOverlay(GameSettings.PerfOverlay);
+            GameSettings.PerfOverlayMode = saveManager.GetInt("PerfOverlayMode",
+                saveManager.GetBool("PerfOverlay", false) ? 1 : 0);
 END
 
 FILE InGame/SaveLoad/SettingsSaveLoad.cs
@@ -34,7 +36,15 @@ FIND
             saveManager.SetBool("EpilepsySafe", GameSettings.EpilepsySafe);
 REPLACE
             saveManager.SetBool("EpilepsySafe", GameSettings.EpilepsySafe);
-            saveManager.SetBool("PerfOverlay", GameSettings.PerfOverlay);
+            saveManager.SetInt("PerfOverlayMode", GameSettings.PerfOverlayMode);
+END
+
+FILE InGame/Pages/Settings/VideoSettingsPage.cs
+FIND
+        private readonly InterfaceListLayout _toggleDisableBlur;
+REPLACE
+        private readonly InterfaceListLayout _toggleDisableBlur;
+        private readonly InterfaceSlider _sliderPerfOverlay;
 END
 
 FILE InGame/Pages/Settings/VideoSettingsPage.cs
@@ -47,19 +57,26 @@ FIND
             _contentLayout.AddElement(_toggleDisableBlur);
             _tooltips.Add("tooltip_video_disableblur");
 REPLACE
-            // Kept off the page (SetNoBlurEffects still updates it); the Vita never blurs the UI.
             _toggleDisableBlur = InterfaceToggle.GetToggleButton(
                 new Point(buttonWidth, buttonHeight), new Point(5, 2),
                 "settings_video_disableblur", GameSettings.DisableUiBlur,
                 newState => { GameSettings.DisableUiBlur = newState; });
 
-            // Toggle: Performance Overlay
-            var togglePerfOverlay = InterfaceToggle.GetToggleButton(
-                new Point(buttonWidth, buttonHeight), new Point(5, 2),
-                "settings_video_perfoverlay", GameSettings.PerfOverlay,
-                newState => { GameSettings.PerfOverlay = newState; Game1.VitaPerfOverlay(newState); });
-            _contentLayout.AddElement(togglePerfOverlay);
+            _sliderPerfOverlay = new InterfaceSlider("settings_video_perfoverlay",
+                buttonWidth, sliderHeight, new Point(1, 2), 0, 3, 1, GameSettings.PerfOverlayMode,
+                number => { GameSettings.PerfOverlayMode = number; })
+                { SetString = number => " " + Game1.LanguageManager.GetString("settings_video_perfoverlay_" + number, "Off") };
+            _contentLayout.AddElement(_sliderPerfOverlay);
             _tooltips.Add("tooltip_video_perfoverlay");
+END
+
+FILE InGame/Pages/Settings/VideoSettingsPage.cs
+FIND
+            UpdateGameScaleSlider();
+REPLACE
+            UpdateGameScaleSlider();
+            if (_sliderPerfOverlay.CurrentStep != GameSettings.PerfOverlayMode)
+                _sliderPerfOverlay.SetValue(GameSettings.PerfOverlayMode);
 END
 
 FILE Game1.cs
@@ -69,6 +86,8 @@ REPLACE
         public static void VitaBackBufferAsTarget(bool on) { }
 
         public static void VitaPerfOverlay(bool on) { }
+        public static int VitaPerfOverlayMode() { return 0; }
+        public static void VitaSetPerfOverlayMode(int mode) { }
 END
 
 FILE InGame/Things/Language.cs
@@ -89,7 +108,11 @@ REPLACE
         private static readonly Dictionary<string, string> VitaStrings = new Dictionary<string, string>
         {
             { "settings_video_perfoverlay", "Performance Overlay" },
-            { "tooltip_video_perfoverlay", "Shows the frame rate and how long each part of a frame takes in the top left corner. Select+L+R toggles it at any time." }
+            { "settings_video_perfoverlay_0", "Off" },
+            { "settings_video_perfoverlay_1", "FPS Only" },
+            { "settings_video_perfoverlay_2", "Monitor" },
+            { "settings_video_perfoverlay_3", "Detailed" },
+            { "tooltip_video_perfoverlay", "Selects the performance display: Off, FPS Only, Monitor, or Detailed. Monitor adds FPS history and memory usage. Detailed adds frame diagnostics." }
         };
 
         public string GetString(string strKey, string defaultString, bool skipReplaceTag = false, bool forceEnglish = false)

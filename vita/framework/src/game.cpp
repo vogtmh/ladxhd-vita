@@ -2,6 +2,7 @@
 #include "fw/all.h"
 #include "gfx_internal.h"
 #include "platform.h"
+#include "overlay.h"
 #include <atomic>
 extern "C" size_t GC_get_heap_size(void);
 extern "C" size_t GC_get_free_bytes(void);
@@ -40,6 +41,8 @@ struct Stats {
     size_t gcStart = 0;
 };
 static Stats stats;
+static double overlayStart = 0;
+static int overlayFrames = 0;
 static void reportStats();
 static double processStart = 0;
 static const double bootStart = plat::timeSeconds();
@@ -68,16 +71,11 @@ struct HitchProbe {
                    GC_get_full_gc_total_time() - gcMs, (unsigned)((GC_get_total_bytes() - allocated) / 1024));
     }
 };
-namespace overlay {
-extern bool enabled;
-void setLines(std::vector<std::string> l);
-void draw(int w, int h);
-}  // namespace overlay
 namespace audio {
 extern std::atomic<int> underruns;
 }  // namespace audio
 namespace plat {
-bool diagnosticsEnabled() { return overlay::enabled || perfRequested; }
+bool diagnosticsEnabled() { return overlay::active() || perfRequested; }
 }
 long frameCounter = 0;
 static void initAutomation() {
@@ -104,19 +102,20 @@ static void initAutomation() {
 #if !defined(FW_VITA)
     perfRequested = std::getenv("LADX_PERF") != nullptr;
     perfStat = perfRequested;
-    overlay::enabled = perfStat;
+    if (perfRequested) overlay::setEnabled(true);
 #endif
     stats.start = plat::timeSeconds();
+    overlayStart = stats.start;
 }
-// Select+L+R on the pad or F3 on the keyboard toggles the overlay; Select+Triangle (F4) cycles gfx debug modes.
+// Select+L+R or F3 cycles overlay views; Select+Triangle or F4 cycles gfx debug modes.
 static void pollOverlayToggle() {
     static bool was = false, wasMode = false;
-    uint32_t keys[8];
-    plat::keyboard(keys);
+    auto keyboard = Microsoft::Xna::Framework::Input::Keyboard::GetState();
+    const auto* keys = keyboard.keys;
     auto pad = plat::gamepad(0);
     const uint32_t combo = 32 | 256 | 512, modeCombo = 32 | 32768;
     bool now = (pad.connected && (pad.buttons & combo) == combo) || ((keys[114 >> 5] >> (114 & 31)) & 1);
-    if (now && !was) overlay::enabled = !overlay::enabled;
+    if (now && !was) overlay::cycle();
     was = now;
     bool mode = (pad.connected && (pad.buttons & modeCombo) == modeCombo) || ((keys[115 >> 5] >> (115 & 31)) & 1);
     if (mode && !wasMode) gfx::debugMode = (gfx::debugMode + 1) % 4;
@@ -149,10 +148,38 @@ void reportStats() {
                   g.uploadSeconds * ms, g.uploads / stats.frames, (unsigned)(g.uploadBytes / stats.frames / 1024));
     std::snprintf(l4, sizeof l4, "GC %d  HEAP %uMB  DRAWS %d  RT %d  MODE %s", gcs, (unsigned)(GC_get_heap_size() >> 20),
                   gfx::drawCalls / stats.frames, gfx::targetSwitches / stats.frames, modeNames[gfx::debugMode]);
-    overlay::setLines({l1, l2, l3, l4});
     plat::logf("perf: %s | %s | %s | %s\n", l1, l2, l3, l4);
     if (int n = audio::underruns.exchange(0)) plat::logf("audio: music ran dry %d times\n", n);
     resetStats();
+}
+static void sampleOverlay(double targetFps) {
+    if (!overlay::active()) {
+        overlayFrames = 0;
+        overlayStart = plat::timeSeconds();
+        return;
+    }
+    overlayFrames++;
+    double now = plat::timeSeconds();
+    double elapsed = now - overlayStart;
+    if (elapsed < 0.25 || !stats.frames) return;
+    auto memory = plat::memoryInfo();
+    overlay::Sample sample;
+    sample.fps = overlayFrames / elapsed;
+    sample.targetFps = targetFps;
+    sample.updateMs = 1000 * stats.update / stats.frames;
+    sample.drawMs = 1000 * stats.draw / stats.frames;
+    sample.memoryUsed = memory.used;
+    sample.memoryBudget = memory.budget;
+    sample.heapOnly = memory.heapOnly;
+    sample.systemFree = memory.systemFree;
+    sample.graphicsFree = memory.graphicsFree;
+    sample.freeKnown = memory.freeKnown;
+    sample.gcHeap = GC_get_heap_size();
+    sample.draws = gfx::drawCalls / stats.frames;
+    sample.targets = gfx::targetSwitches / stats.frames;
+    overlay::record(sample);
+    overlayFrames = 0;
+    overlayStart = now;
 }
 void scriptedKeys(uint32_t keys[8]) {
     for (auto& k : scriptKeys)
@@ -335,6 +362,7 @@ void Game::Run() {
         fw::gfx::bePresent();
         fw::stats.swap += fw::plat::timeSeconds() - ts;
         fw::stats.frames++;
+        fw::sampleOverlay(fixedTimeStep && targetElapsed.ticks > 0 ? 1.0e7 / targetElapsed.ticks : 60.0);
         if (fw::perfStat && fw::frameCounter == 1) {
             char msg[320];
             std::snprintf(msg, sizeof msg,

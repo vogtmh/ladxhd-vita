@@ -1,6 +1,7 @@
 #pragma once
 // Platform layer used by the MonoGame shim (SDL2 on desktop, native Vita APIs on the console).
 #include <cstdint>
+#include <cstddef>
 
 namespace fw::plat {
 // Called first in main(), before the GC starts.
@@ -12,6 +13,12 @@ void swap();
 bool pollEvents(bool& active);
 void drawableSize(int& w, int& h);
 double timeSeconds();
+struct MemoryInfo {
+    size_t used = 0, budget = 0;
+    size_t systemFree = 0, graphicsFree = 0;
+    bool heapOnly = false, freeKnown = false;
+};
+MemoryInfo memoryInfo();
 void sleepMs(int ms);
 // XNA key codes, 256 bits.
 void keyboard(uint32_t keys[8]);

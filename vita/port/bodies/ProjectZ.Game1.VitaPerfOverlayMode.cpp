@@ -1,0 +1,3 @@
+{
+    return ::fw::getPerfOverlayMode();
+}

@@ -78,7 +78,16 @@ To update, install a newer VPK over the old one. Saves and settings are kept.
 - Chinese is not available on the Vita: its two font textures (about 12 MB) would be loaded at every start,
   whatever language is selected. All other languages are available.
 - Saves, settings and a log file (`log.txt`) are stored in `ux0:data/ladxhd/`.
-- *Settings → Video → Performance Overlay* shows frame times on screen.
+- *Settings → Video → Performance Overlay* selects **Off / FPS Only / Monitor / Detailed** for the
+  Quiet Glass performance display. The selected mode is saved with your settings; shortcut changes
+  stay synchronized with the menu. Old on/off settings migrate to FPS Only or Off.
+  Press **Select + L + R** (desktop: **F3**) to cycle **Off → FPS → Monitor → Detailed → Off**.
+  FPS-only stays white. Monitor adds an FPS history and a ten-segment memory bar; Detailed adds
+  diagnostics in one full-width line. FPS and memory independently turn green, light orange, or red.
+  FPS warns below 95% of the target and turns red below 75%; memory warns at 80% and turns red at 90%.
+  `RAM HEAP` explicitly measures the newlib heap, including native and GC allocations, less reusable
+  space, not total device RAM or GPU allocations. Detailed `FREE` and `VRAM` show kernel-reported free
+  main RAM and graphics RAM. Unavailable measurements display `N/A`.
 - Routine performance, hitch, and GPU/pacing logs are enabled with the overlay. Errors, memory warnings,
   and crash diagnostics remain enabled when it is off.
 - New installations default to 3x game scale. Updates preserve your saved scale; 1x shows more of the world
