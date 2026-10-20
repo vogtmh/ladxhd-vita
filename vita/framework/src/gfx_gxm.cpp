@@ -671,7 +671,7 @@ void framePresent() {
     endScene(&g_frameDone[half]);
     g_frameTraces[g_frame % 3] = std::move(g_frameTrace);
     g_frameTrace.clear();
-    if (debugMode == 3 && g_frame % 60 == 0) {
+    if (debugMode == 3 && fw::plat::diagnosticsEnabled() && g_frame % 60 == 0) {
         std::string line = "gpu scenes:";
         float total = 0;
         char buf[48];
@@ -942,7 +942,8 @@ static void updateSwapInterval(double workMs) {
         g_swapInterval = 1;
         window = missed = 0;
     }
-    if (g_swapInterval != before) fw::plat::logf("pacing: %d fps\n", 60 / g_swapInterval);
+    if (g_swapInterval != before && fw::plat::diagnosticsEnabled())
+        fw::plat::logf("pacing: %d fps\n", 60 / g_swapInterval);
 }
 
 void bePresent() {
@@ -1037,10 +1038,12 @@ void beCreateTarget(RenderTarget2D* rt) {
     rp.driverMemBlock = -1;
     int r = sceGxmCreateRenderTarget(&rp, &g->rt);
     if (r < 0) fw::plat::logf("render target %dx%d failed: 0x%08X\n", rt->width, rt->height, (unsigned)r);
-    unsigned driverMem = 0;
-    sceGxmGetRenderTargetMemSize(&rp, &driverMem);
-    fw::plat::logf("gxm render target %dx%d: new, %u KB driver memory (%u free for reuse)\n", rt->width, rt->height,
-                   driverMem / 1024, (unsigned)g_freeTargets.size());
+    if (fw::plat::diagnosticsEnabled()) {
+        unsigned driverMem = 0;
+        sceGxmGetRenderTargetMemSize(&rp, &driverMem);
+        fw::plat::logf("gxm render target %dx%d: new, %u KB driver memory (%u free for reuse)\n", rt->width, rt->height,
+                       driverMem / 1024, (unsigned)g_freeTargets.size());
+    }
 }
 void beReleaseTarget(RenderTarget2D* rt) { beReleaseTexture(rt); }
 

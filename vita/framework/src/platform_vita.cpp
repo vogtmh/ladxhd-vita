@@ -9,6 +9,7 @@
 #include <psp2/kernel/processmgr.h>
 #include <psp2/kernel/threadmgr.h>
 #include <psp2/power.h>
+#include <atomic>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -35,11 +36,13 @@ static volatile bool audioRunning = false;
 static void (*mixFn)(int16_t*, int) = nullptr;
 constexpr int kAudioFrames = 1024;
 static SceUID logFd = -1;
+static std::atomic<bool> logDirty{false};
 static void gcAbort(const char* msg) {
     if (logFd >= 0 && msg) {
         sceIoWrite(logFd, "GC abort: ", 10);
         sceIoWrite(logFd, msg, std::strlen(msg));
         sceIoWrite(logFd, "\n", 1);
+        sceIoSyncByFd(logFd, 0);
     }
 }
 static void gcWarn(char* msg, unsigned long arg) { logf(msg, arg); }
@@ -54,7 +57,7 @@ static int watchdogMain(SceSize, void*) {
     for (;;) {
         sceKernelDelayThread(1000 * 1000);
         // A system hang needs a forced power-off, which loses unsynced writes.
-        if (logFd >= 0) sceIoSyncByFd(logFd, 0);
+        if (logFd >= 0 && logDirty.exchange(false)) sceIoSyncByFd(logFd, 0);
         unsigned b = g_beat;
         if (b != last) {
             last = b;
@@ -122,6 +125,7 @@ bool init(int width, int height, const char*) {
 void shutdown() {
     audioRunning = false;
     if (audioThread >= 0) sceKernelWaitThreadEnd(audioThread, nullptr, nullptr);
+    if (logFd >= 0) sceIoSyncByFd(logFd, 0);
     sceKernelExitProcess(0);
 }
 
@@ -226,7 +230,8 @@ void logf(const char* fmt, ...) {
     va_start(ap, fmt);
     int n = std::vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
-    if (n > 0) sceIoWrite(logFd, buf, n < (int)sizeof buf ? n : (int)sizeof buf - 1);
+    if (n > 0 && sceIoWrite(logFd, buf, n < (int)sizeof buf ? n : (int)sizeof buf - 1) > 0)
+        logDirty.store(true);
 }
 
 struct ThreadStart {

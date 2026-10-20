@@ -79,6 +79,8 @@ To update, install a newer VPK over the old one. Saves and settings are kept.
   whatever language is selected. All other languages are available.
 - Saves, settings and a log file (`log.txt`) are stored in `ux0:data/ladxhd/`.
 - *Settings → Video → Performance Overlay* shows frame times on screen.
+- Routine performance, hitch, and GPU/pacing logs are enabled with the overlay. Errors, memory warnings,
+  and crash diagnostics remain enabled when it is off.
 - New installations default to 3x game scale. Updates preserve your saved scale; 1x shows more of the world
   and can reduce performance on the Vita.
 

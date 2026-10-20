@@ -33,6 +33,7 @@ static std::vector<ScriptKey> scriptKeys;
 static long quitFrame = -1;
 static bool memStat = false;
 static bool perfStat = false;
+static bool perfRequested = false;
 struct Stats {
     double start = 0, update = 0, hook = 0, draw = 0, swap = 0;
     int frames = 0, updates = 0;
@@ -57,6 +58,7 @@ struct HitchProbe {
         allocated = GC_get_total_bytes();
     }
     void end(const char* what, long frame) {
+        if (!plat::diagnosticsEnabled()) return;
         double ms = (plat::timeSeconds() - t0) * 1000.0;
         static const double limit = [] { const char* s = std::getenv("LADX_HITCH_MS"); return s ? std::atof(s) : 25.0; }();
         if (ms < limit) return;
@@ -74,6 +76,9 @@ void draw(int w, int h);
 namespace audio {
 extern std::atomic<int> underruns;
 }  // namespace audio
+namespace plat {
+bool diagnosticsEnabled() { return overlay::enabled || perfRequested; }
+}
 long frameCounter = 0;
 static void initAutomation() {
     if (const char* s = std::getenv("LADX_SHOTS"))
@@ -96,10 +101,9 @@ static void initAutomation() {
         }
     if (const char* s = std::getenv("LADX_QUIT")) quitFrame = std::atol(s);
     memStat = std::getenv("LADX_MEMSTAT") != nullptr;
-#if defined(FW_VITA)
-    perfStat = true;
-#else
-    perfStat = std::getenv("LADX_PERF") != nullptr;
+#if !defined(FW_VITA)
+    perfRequested = std::getenv("LADX_PERF") != nullptr;
+    perfStat = perfRequested;
     overlay::enabled = perfStat;
 #endif
     stats.start = plat::timeSeconds();
@@ -118,7 +122,19 @@ static void pollOverlayToggle() {
     if (mode && !wasMode) gfx::debugMode = (gfx::debugMode + 1) % 4;
     wasMode = mode;
 }
+static void resetStats() {
+    stats = Stats{};
+    stats.start = plat::timeSeconds();
+    stats.gcStart = GC_get_gc_no();
+    gfx::drawCalls = gfx::targetSwitches = 0;
+    gfx::gpuStats = gfx::GpuStats{};
+    audio::underruns.exchange(0);
+}
 void reportStats() {
+    if (!perfStat || !plat::diagnosticsEnabled()) {
+        resetStats();
+        return;
+    }
     double now = plat::timeSeconds();
     double ms = 1000.0 / stats.frames;
     double fps = stats.frames / (now - stats.start);
@@ -136,11 +152,7 @@ void reportStats() {
     overlay::setLines({l1, l2, l3, l4});
     plat::logf("perf: %s | %s | %s | %s\n", l1, l2, l3, l4);
     if (int n = audio::underruns.exchange(0)) plat::logf("audio: music ran dry %d times\n", n);
-    stats = Stats{};
-    stats.start = now;
-    stats.gcStart = GC_get_gc_no();
-    gfx::drawCalls = gfx::targetSwitches = 0;
-    g = gfx::GpuStats{};
+    resetStats();
 }
 void scriptedKeys(uint32_t keys[8]) {
     for (auto& k : scriptKeys)
@@ -224,6 +236,11 @@ void Game::Run() {
     while (!exitRequested) {
         bool active = isActive;
         if (!fw::plat::pollEvents(active)) break;
+        bool perfNow = fw::plat::diagnosticsEnabled();
+        if (perfNow != fw::perfStat) {
+            fw::perfStat = perfNow;
+            fw::resetStats();
+        }
         if (active != isActive) {
             isActive = active;
             auto* h2 = active ? activated : deactivated;
@@ -329,7 +346,7 @@ void Game::Run() {
                           GC_get_full_gc_total_time());
             fw::plat::log(msg);
         }
-        if (fw::perfStat && fw::stats.frames == 30) fw::reportStats();
+        if (fw::stats.frames == 30) fw::reportStats();
     }
     if (exiting) exiting->Invoke(this, New<ExitingEventArgs>());
     fw::plat::shutdown();

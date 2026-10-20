@@ -29,6 +29,7 @@ void audioUnlock();
 const char* contentRoot();  // folder containing Content/ and Data/
 const char* packFile();     // optional pack served at contentRoot() (null = plain files)
 const char* userRoot();     // writable folder for saves/settings
+bool diagnosticsEnabled();
 void log(const char* msg);
 void logf(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 void startThread(void (*fn)(void*), void* arg, void** handle);
