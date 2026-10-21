@@ -1,0 +1,73 @@
+Vita: autosaves stuttered because every file create/delete/rename on the memory card takes tens of ms.
+Save files are built in memory and written by the runtime's background writer (rt::QueueFileWrite, temp file +
+rename like before). Reads of the save folder wait for pending writes.
+
+FILE InGame/SaveLoad/SaveManager.cs
+FIND
+            var dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            var tempPath = filePath + ".tmp";
+
+            using (var fs = File.Open(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(fs))
+            {
+                foreach (var element in _boolDictionary)
+                    writer.WriteLine("b " + element.Key + " " + element.Value);
+                foreach (var element in _intDictionary)
+                    writer.WriteLine("i " + element.Key + " " + element.Value);
+                foreach (var element in _floatDictionary)
+                    writer.WriteLine("f " + element.Key + " " + element.Value.ToString(CultureInfo.InvariantCulture));
+                foreach (var element in _stringDictionary)
+                    writer.WriteLine("s " + element.Key + " " + element.Value);
+            }
+
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+
+            File.Move(tempPath, filePath);
+        }
+REPLACE
+            var text = new System.Text.StringBuilder();
+            foreach (var element in _boolDictionary)
+                text.AppendLine("b " + element.Key + " " + element.Value);
+            foreach (var element in _intDictionary)
+                text.AppendLine("i " + element.Key + " " + element.Value);
+            foreach (var element in _floatDictionary)
+                text.AppendLine("f " + element.Key + " " + element.Value.ToString(CultureInfo.InvariantCulture));
+            foreach (var element in _stringDictionary)
+                text.AppendLine("s " + element.Key + " " + element.Value);
+            QueueFileWrite(filePath, text.ToString());
+        }
+
+        public static void QueueFileWrite(string filePath, string text) { }
+END
+
+FILE InGame/SaveLoad/AchievementManager.cs
+FIND
+            var filePath = GetFilePath();
+
+            var dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+
+            var tempPath = filePath + ".tmp";
+
+            using (var fs = File.Open(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(fs))
+            {
+                for (var i = 0; i < _earned.Length; i++)
+                    writer.WriteLine("achievement" + i + " " + (_earned[i] ? "true" : "false"));
+            }
+
+            if (File.Exists(filePath))
+                File.Delete(filePath);
+
+            File.Move(tempPath, filePath);
+REPLACE
+            var text = new System.Text.StringBuilder();
+            for (var i = 0; i < _earned.Length; i++)
+                text.AppendLine("achievement" + i + " " + (_earned[i] ? "true" : "false"));
+            SaveManager.QueueFileWrite(GetFilePath(), text.ToString());
+END

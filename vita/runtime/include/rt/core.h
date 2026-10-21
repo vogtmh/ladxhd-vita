@@ -858,4 +858,7 @@ void CollectGeneration(int32_t generation);
 bool BeginNoGC(int64_t bytes);
 void ConfigureCollector(size_t heapLimit, bool enforceLimit);
 int64_t AllocatedBytes();
+// Saves are written by a background thread (temp file + rename); other disk accesses wait for it.
+void QueueFileWrite(System::String* path, System::String* text);
+void WaitForFileWrites();
 }

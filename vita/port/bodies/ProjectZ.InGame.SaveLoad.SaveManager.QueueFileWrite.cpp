@@ -1,0 +1,3 @@
+{
+    ::rt::QueueFileWrite(filePath, text);
+}

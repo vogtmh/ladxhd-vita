@@ -377,6 +377,7 @@ void Game::Run() {
         if (fw::stats.frames == 30) fw::reportStats();
     }
     if (exiting) exiting->Invoke(this, New<ExitingEventArgs>());
+    rt::WaitForFileWrites();
     fw::plat::shutdown();
 }
 

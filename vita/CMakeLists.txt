@@ -69,6 +69,13 @@ add_library(runtime STATIC ${RUNTIME_SOURCES})
 target_include_directories(runtime PUBLIC ${COMMON_INCLUDES})
 target_compile_options(runtime PRIVATE -fwrapv -fno-strict-aliasing -Wall -Wno-unused-function)
 target_link_libraries(runtime PUBLIC bdwgc z)
+# Background save writer (runtime/src/io.cpp).
+if(VITA_BUILD)
+  target_link_libraries(runtime PUBLIC pthread)
+else()
+  find_package(Threads REQUIRED)
+  target_link_libraries(runtime PUBLIC Threads::Threads)
+endif()
 
 if(VITA_BUILD)
   include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)

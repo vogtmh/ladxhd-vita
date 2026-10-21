@@ -1,17 +1,24 @@
 // Runtime: streams, files, directories, paths.
 #include "rt/all.h"
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <vector>
+#include <pthread.h>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <zlib.h>
+
+extern "C" void rt_log(const char*);
 
 namespace {
 // Read-only pack: thousands of small files install slowly on the Vita, so game data ships as one file.
@@ -77,6 +84,89 @@ int32_t packRead(int64_t offset, uint8_t* dst, int32_t n) {
     }
     return done;
 }
+
+// Each create/delete/rename on the Vita memory card takes tens of ms, so an autosave (4 files) stalled the frame.
+// Saves are written by a worker thread; every other access to writable paths waits until it is idle.
+struct FileJob {
+    std::string path, data;
+    bool dirOnly = false;
+};
+pthread_mutex_t g_jobMutex = PTHREAD_MUTEX_INITIALIZER;
+std::deque<FileJob> g_jobs;
+bool g_writerRunning = false;  // guarded by g_jobMutex
+std::atomic<int> g_jobsPending{0};
+
+void makeDirs(const std::string& n) {
+    for (size_t i = 1; i <= n.size(); i++) {
+        if (i == n.size() || n[i] == '/') {
+            std::string sub = n.substr(0, i);
+            if (!sub.empty() && sub.back() != ':') mkdir(sub.c_str(), 0777);
+        }
+    }
+}
+// Temp file, delete, rename: the same sequence the game used, so an interrupted save keeps the old file.
+void runJob(const FileJob& job) {
+    if (job.dirOnly) {
+        makeDirs(job.path);
+        return;
+    }
+    makeDirs(parentOf(job.path));
+    std::string tmp = job.path + ".tmp";
+    FILE* f = std::fopen(tmp.c_str(), "wb");
+    bool ok = f && std::fwrite(job.data.data(), 1, job.data.size(), f) == job.data.size();
+    if (f && std::fclose(f) != 0) ok = false;
+    if (ok) {
+        std::remove(job.path.c_str());
+        ok = std::rename(tmp.c_str(), job.path.c_str()) == 0;
+    }
+    if (!ok) {
+        char msg[320];
+        std::snprintf(msg, sizeof msg, "save: could not write %s", job.path.c_str());
+        rt_log(msg);
+    }
+}
+void writerMain() {
+    for (;;) {
+        FileJob job;
+        pthread_mutex_lock(&g_jobMutex);
+        if (g_jobs.empty()) {
+            g_writerRunning = false;
+            pthread_mutex_unlock(&g_jobMutex);
+            return;
+        }
+        job = std::move(g_jobs.front());
+        g_jobs.pop_front();
+        pthread_mutex_unlock(&g_jobMutex);
+        runJob(job);
+        g_jobsPending--;
+    }
+}
+void* writerEntry(void*) {
+    writerMain();
+    return nullptr;
+}
+// The worker exits when the queue is empty, so no condition variable is needed (the Vita libstdc++ only has weak,
+// unresolved references to pthread_cond_*).
+void queueJob(FileJob job) {
+    pthread_mutex_lock(&g_jobMutex);
+    g_jobs.push_back(std::move(job));
+    g_jobsPending++;
+    bool start = !g_writerRunning;
+    g_writerRunning = true;
+    pthread_mutex_unlock(&g_jobMutex);
+    if (!start) return;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, 64 * 1024);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_t th;
+    bool started = pthread_create(&th, &attr, writerEntry, nullptr) == 0;
+    pthread_attr_destroy(&attr);
+    if (!started) writerMain();
+}
+void waitForJobs() {
+    while (g_jobsPending.load() > 0) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+}
 }  // namespace
 
 namespace rt {
@@ -132,6 +222,18 @@ static std::string native(String* p) {
         if (c == '\\') c = '/';
     return s;
 }
+}  // namespace System::IO
+
+namespace rt {
+void QueueFileWrite(System::String* path, System::String* text) {
+    std::string n = System::IO::native(path);
+    const char* u = text ? text->ToUtf8() : "";
+    queueJob({n, std::string(u), false});
+}
+void WaitForFileWrites() { waitForJobs(); }
+}  // namespace rt
+
+namespace System::IO {
 
 // ---------------------------------------------------------------- Stream
 void Stream::CopyTo(Stream* dst) {
@@ -209,6 +311,7 @@ void FileStream::__init(String* p, FileMode mode, FileAccess access, FileShare) 
         return;
     }
     if (underPack && !canWrite) throw NewEx<FileNotFoundException>(String::Concat(STR(u"Could not open file: "), p));
+    waitForJobs();
     struct stat st;
     bool exists = stat(n.c_str(), &st) == 0;
     switch (mode) {
@@ -359,6 +462,7 @@ bool File::Exists(String* p) {
     bool under = false;
     if (packFile(n, &under)) return true;
     if (under) return false;
+    waitForJobs();
     struct stat st;
     return stat(n.c_str(), &st) == 0 && S_ISREG(st.st_mode);
 }
@@ -366,8 +470,12 @@ void File::Copy(String* src, String* dst, bool overwrite) {
     if (!overwrite && Exists(dst)) throw NewEx<IOException>(STR(u"Destination exists"));
     WriteAllBytes(dst, ReadAllBytes(src));
 }
-void File::Delete(String* p) { std::remove(native(p).c_str()); }
+void File::Delete(String* p) {
+    waitForJobs();
+    std::remove(native(p).c_str());
+}
 void File::Move(String* src, String* dst) {
+    waitForJobs();
     if (std::rename(native(src).c_str(), native(dst).c_str()) != 0) {
         Copy(src, dst, true);
         Delete(src);
@@ -414,6 +522,7 @@ DateTime File::GetLastWriteTime(String* p) {
     DateTime d;
     std::string n = native(p), rel;
     if (packRel(n, rel)) return d;
+    waitForJobs();
     if (stat(n.c_str(), &st) == 0) d.ticks = 621355968000000000LL + (int64_t)st.st_mtime * 10000000LL;
     return d;
 }
@@ -423,6 +532,7 @@ int64_t FileInfo::get_Length() {
     bool under = false;
     if (const PackEntry* e = packFile(n, &under)) return (int64_t)e->size;
     if (under) return 0;
+    waitForJobs();
     struct stat st;
     return stat(n.c_str(), &st) == 0 ? st.st_size : 0;
 }
@@ -433,17 +543,13 @@ bool Directory::Exists(String* p) {
     if (!p) return false;
     std::string n = native(p), rel;
     if (packRel(n, rel)) return g_pack->dirs.count(rel) != 0;
+    waitForJobs();
     struct stat st;
     return stat(n.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
 }
 DirectoryInfo* Directory::CreateDirectory(String* p) {
-    std::string n = native(p);
-    for (size_t i = 1; i <= n.size(); i++) {
-        if (i == n.size() || n[i] == '/') {
-            std::string sub = n.substr(0, i);
-            if (!sub.empty() && sub.back() != ':') mkdir(sub.c_str(), 0777);
-        }
-    }
+    // Queued behind pending saves (the game creates the save folder before each save); later accesses wait anyway.
+    queueJob({native(p), std::string(), true});
     auto* d = New<DirectoryInfo>();
     d->path = p;
     return d;
@@ -472,6 +578,7 @@ static Array1<String*>* listDir(String* p, int kind, String* pattern) {
         for (auto& name : names) l->Add(Path::Combine(p, String::FromUtf8(name.c_str())));
         return l->ToArray();
     }
+    waitForJobs();
     DIR* d = opendir(n.c_str());
     if (!d) throw NewEx<DirectoryNotFoundException>(String::Concat(STR(u"Directory not found: "), p));
     while (dirent* e = readdir(d)) {
@@ -495,7 +602,10 @@ Array1<String*>* Directory::GetFiles(String* p) { return listDir(p, 1, nullptr);
 Array1<String*>* Directory::GetFiles(String* p, String* pattern) { return listDir(p, 1, pattern); }
 Array1<String*>* Directory::GetDirectories(String* p) { return listDir(p, 2, nullptr); }
 Array1<String*>* Directory::GetFileSystemEntries(String* p) { return listDir(p, 0, nullptr); }
-void Directory::Delete(String* p) { rmdir(native(p).c_str()); }
+void Directory::Delete(String* p) {
+    waitForJobs();
+    rmdir(native(p).c_str());
+}
 void Directory::Delete(String* p, bool recursive) {
     if (recursive) {
         for (auto* f : *GetFiles(p)) File::Delete(f);
