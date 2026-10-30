@@ -1016,6 +1016,7 @@ void beDownload(Texture* t, int x, int y, int w, int h, void* rgba) {
 }
 void beCreateTarget(RenderTarget2D* rt) {
     GpuLock lock(g_gpuMutex);
+    double t0 = fw::plat::timeSeconds();
     beCreateTexture(rt, rt->width, rt->height);
     GxmTex* g = texOf(rt);
     if (!g->mem) return;
@@ -1041,8 +1042,8 @@ void beCreateTarget(RenderTarget2D* rt) {
     if (fw::plat::diagnosticsEnabled()) {
         unsigned driverMem = 0;
         sceGxmGetRenderTargetMemSize(&rp, &driverMem);
-        fw::plat::logf("gxm render target %dx%d: new, %u KB driver memory (%u free for reuse)\n", rt->width, rt->height,
-                       driverMem / 1024, (unsigned)g_freeTargets.size());
+        fw::plat::logf("gxm render target %dx%d: new, %u KB driver memory (%u free for reuse), %.1f ms\n", rt->width,
+                       rt->height, driverMem / 1024, (unsigned)g_freeTargets.size(), (fw::plat::timeSeconds() - t0) * 1000.0);
     }
 }
 void beReleaseTarget(RenderTarget2D* rt) { beReleaseTexture(rt); }

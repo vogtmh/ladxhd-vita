@@ -1,0 +1,122 @@
+Smaller live heap. With the overworld loaded the collector has to mark ~830,000 objects (~60 MB on desktop) on
+every collection, which takes 0.5-1 s on the Vita; less live data makes each collection proportionally faster.
+
+Every game object had a 32-slot component array; the highest component index is 17.
+
+FILE InGame/GameObjects/Base/GameObject.cs
+FIND
+        public Component[] Components = new Component[32];
+REPLACE
+        public Component[] Components = new Component[18];
+END
+
+Every CPosition (~23,000 with the overworld loaded) carried a Dictionary for its change listeners: five objects and
+~270 bytes even with a single key, which nearly all have (both object pools register under typeof(ComponentPool)).
+The first listener is now stored inline, further ones in a dictionary created on demand.
+
+FILE InGame/GameObjects/Base/CObjects/CPosition.cs
+FIND
+        public Dictionary<Type, PositionChanged> PositionChangedDict = new Dictionary<Type, PositionChanged>();
+REPLACE
+        private Type _firstListenerType;
+        private PositionChanged _firstListener;
+        private Dictionary<Type, PositionChanged> _moreListeners;
+END
+
+FILE InGame/GameObjects/Base/CObjects/CPosition.cs
+FIND
+            if (PositionChangedDict.ContainsKey(type))
+                PositionChangedDict[type] += positionChanged;
+            else
+                PositionChangedDict.Add(type, positionChanged);
+REPLACE
+            if (_firstListenerType == type)
+                _firstListener += positionChanged;
+            else if (_moreListeners != null && _moreListeners.ContainsKey(type))
+                _moreListeners[type] += positionChanged;
+            else if (_firstListenerType == null)
+            {
+                _firstListenerType = type;
+                _firstListener = positionChanged;
+            }
+            else
+            {
+                if (_moreListeners == null)
+                    _moreListeners = new Dictionary<Type, PositionChanged>();
+                _moreListeners.Add(type, positionChanged);
+            }
+END
+
+FILE InGame/GameObjects/Base/CObjects/CPosition.cs
+FIND
+            if (PositionChangedDict.ContainsKey(type))
+                PositionChangedDict.Remove(type);
+REPLACE
+            if (_firstListenerType == type)
+            {
+                _firstListenerType = null;
+                _firstListener = null;
+            }
+            else
+                _moreListeners?.Remove(type);
+END
+
+FILE InGame/GameObjects/Base/CObjects/CPosition.cs
+FIND
+            foreach (var listener in PositionChangedDict)
+                listener.Value(this);
+REPLACE
+            if (_firstListenerType != null)
+                _firstListener(this);
+            if (_moreListeners != null)
+                foreach (var listener in _moreListeners)
+                    listener.Value(this);
+END
+
+FILE InGame/GameObjects/Base/Pools/ComponentDrawPool.cs
+FIND
+            gameObject.EntityPosition.PositionChangedDict.Remove(typeof(ComponentPool));
+REPLACE
+            gameObject.EntityPosition.RemovePositionListener(typeof(ComponentPool));
+END
+
+FILE InGame/GameObjects/Base/Pools/ComponentPool.cs
+FIND
+            gameObject.EntityPosition.PositionChangedDict.Remove(typeof(ComponentPool));
+REPLACE
+            gameObject.EntityPosition.RemovePositionListener(typeof(ComponentPool));
+END
+
+FILE InGame/GameObjects/Bosses/BossSlimeEel.cs
+FIND
+        private void FinishPull()
+        {
+            MapManager.ObjLink.Hookshot.HookshotPosition.PositionChangedDict.Remove(typeof(BossSlimeEel));
+REPLACE
+        private void FinishPull()
+        {
+            MapManager.ObjLink.Hookshot.HookshotPosition.RemovePositionListener(typeof(BossSlimeEel));
+END
+
+FILE InGame/GameObjects/Bosses/BossSlimeEel.cs
+FIND
+                MapManager.ObjLink.Hookshot.HookshotPosition.PositionChangedDict.Remove(typeof(BossSlimeEel));
+                _body.VelocityTarget = Vector2.Zero;
+REPLACE
+                MapManager.ObjLink.Hookshot.HookshotPosition.RemovePositionListener(typeof(BossSlimeEel));
+                _body.VelocityTarget = Vector2.Zero;
+END
+
+FILE InGame/GameObjects/ObjLink.cs
+FIND
+            EntityPosition.PositionChangedDict.Remove(typeof(ObjLink));
+REPLACE
+            EntityPosition.RemovePositionListener(typeof(ObjLink));
+END
+
+FILE InGame/GameObjects/Things/ObjPullBridge.cs
+FIND
+            MapManager.ObjLink.Hookshot.HookshotPosition.PositionChangedDict.Remove(typeof(ObjPullBridge));
+REPLACE
+            MapManager.ObjLink.Hookshot.HookshotPosition.RemovePositionListener(typeof(ObjPullBridge));
+END

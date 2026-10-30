@@ -49,9 +49,9 @@ int main(int argc, char** argv) {
 #if defined(__vita__)
     // Start with a large heap so loading doesn't run dozens of collections while growing it.
     GC_expand_hp(64 * 1024 * 1024);
-    // Keep part of the 192 MB newlib heap for malloc (image decoding, GXM shader patcher); the GC collects
+    // Keep 32 MB of the 256 MB newlib heap for malloc (image decoding, GXM shader patcher); the GC collects
     // harder instead of growing past this.
-    rt::ConfigureCollector(160 * 1024 * 1024, true);
+    rt::ConfigureCollector(224 * 1024 * 1024, true);
 #else
     rt::ConfigureCollector(160 * 1024 * 1024, false);
 #endif

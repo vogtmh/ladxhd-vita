@@ -2,8 +2,22 @@ Vita: leaving a house rebuilt the whole overworld (about 17,000 objects, 0.8-1.6
 afterwards). The overworld now stays alive while the player is in a house, a cave or another small map that is
 not a dungeon. On return only the static terrain objects are kept (colliders, water, animated tiles, sprites,
 fences, ... about 16,000); every other object of the map file is created again exactly as a fresh load would
-(doors, spawners, NPCs, items, enemies), and so are cut bushes. Objects spawned at runtime are removed. A loaded
+(doors, spawners, NPCs, items, enemies), and so are cut bushes. Fence parts and stone spawners are kept too
+(stone spawners are reset to their loaded state). Objects spawned at runtime are removed. A loaded
 save, or something destroyed that cannot be traced back to a map entry, rebuilds the overworld as before.
+The reset runs without a collection, so everything it allocates stays until the next one; it avoids temporary
+tables over all objects (per-object VitaEntry/VitaStamp fields instead).
+
+FILE InGame/GameObjects/Base/GameObject.cs
+FIND
+        public bool IsDead;
+REPLACE
+        public bool IsDead;
+        // Map entry (ObjectManager.VitaItemObjects index) that created this object, or -1.
+        public int VitaEntry = -1;
+        // Scratch mark for set membership tests during an overworld reset.
+        public int VitaStamp;
+END
 
 FILE InGame/Map/Map.cs
 FIND
@@ -70,15 +84,16 @@ FIND
             }
 REPLACE
             // Large maps remember which object came from which map entry, so they can be reset instead of rebuilt.
+            VitaRestoreParameters();
             VitaInitialObjects = null;
             VitaItemObjects = null;
             VitaChildren = null;
-            _vitaOwnerOf = null;
+            _vitaCreating = false;
             if (ObjectList.Count + ObjectListB.Count >= VitaKeepMinObjects)
             {
                 VitaItemObjects = new List<GameObject>(ObjectList.Count + ObjectListB.Count);
                 VitaChildren = new Dictionary<int, List<GameObject>>();
-                _vitaOwnerOf = new Dictionary<GameObject, int>();
+                _vitaCreating = true;
             }
 
             foreach (var gameObj in ObjectList)
@@ -144,10 +159,38 @@ REPLACE
             AddSpawnedObjects();
 
             if (VitaItemObjects != null)
+            {
                 VitaInitialObjects = new HashSet<GameObject>(_poolSpawnedObjects);
-            _vitaOwnerOf = null;
+                VitaDropParameters();
+            }
+            _vitaCreating = false;
 
             _finishedLoading = true;
+        }
+
+        // Marks entries whose parameters were dropped: the load cache holds a pristine copy of every entry.
+        private static readonly object[] VitaDroppedParameters = new object[0];
+
+        // The working copies of the entry parameters (~35,000 objects for the overworld) are only read while
+        // creating the objects.
+        private void VitaDropParameters()
+        {
+            if (ProjectZ.InGame.SaveLoad.SaveLoadMap.VitaPristineItem(Owner.MapFileName, 0, ObjectList.Count == 0) == null)
+                return;
+            foreach (var item in ObjectList)
+                item.Parameter = VitaDroppedParameters;
+            foreach (var item in ObjectListB)
+                item.Parameter = VitaDroppedParameters;
+        }
+
+        private void VitaRestoreParameters()
+        {
+            for (var i = 0; i < ObjectList.Count; i++)
+                if (ObjectList[i].Parameter == VitaDroppedParameters)
+                    ObjectList[i].Parameter = ProjectZ.InGame.SaveLoad.SaveLoadMap.VitaPristineItem(Owner.MapFileName, i, false).Parameter;
+            for (var i = 0; i < ObjectListB.Count; i++)
+                if (ObjectListB[i].Parameter == VitaDroppedParameters)
+                    ObjectListB[i].Parameter = ProjectZ.InGame.SaveLoad.SaveLoadMap.VitaPristineItem(Owner.MapFileName, i, true).Parameter;
         }
 
         public const int VitaKeepMinObjects = 4000;
@@ -157,8 +200,9 @@ REPLACE
         public Dictionary<int, List<GameObject>> VitaChildren;
         // Every object present right after loading.
         public HashSet<GameObject> VitaInitialObjects;
-        // Only set while objects are being created: object -> map entry it belongs to.
-        private Dictionary<GameObject, int> _vitaOwnerOf;
+        // Only true while map entries are being created; spawns are then attributed to their creator's entry.
+        private bool _vitaCreating;
+        private static int _vitaStamp;
 
         // Terrain whose constructors read no game state and whose objects never change while alive.
         private static bool VitaIsStatic(GameObject gameObject) =>
@@ -182,14 +226,14 @@ REPLACE
             var index = VitaItemObjects.Count;
             VitaItemObjects.Add(gameObject);
             if (gameObject != null)
-                _vitaOwnerOf[gameObject] = index;
+                gameObject.VitaEntry = index;
             VitaNoteSpawns(index, spawnedBefore);
         }
 
         private void VitaNoteChildren(GameObject parent, int spawnedBefore)
         {
-            if (_vitaOwnerOf != null && parent != null && _vitaOwnerOf.TryGetValue(parent, out var index))
-                VitaNoteSpawns(index, spawnedBefore);
+            if (_vitaCreating && parent != null && parent.VitaEntry >= 0)
+                VitaNoteSpawns(parent.VitaEntry, spawnedBefore);
         }
 
         private void VitaNoteSpawns(int index, int spawnedBefore)
@@ -199,7 +243,7 @@ REPLACE
                 if (!VitaChildren.TryGetValue(index, out var children))
                     VitaChildren[index] = children = new List<GameObject>();
                 children.Add(SpawnObjects[i]);
-                _vitaOwnerOf[SpawnObjects[i]] = index;
+                SpawnObjects[i].VitaEntry = index;
             }
         }
 
@@ -235,21 +279,11 @@ REPLACE
 
         private static void VitaFilter(List<GameObject> list, HashSet<GameObject> remove)
         {
-            var keep = new List<GameObject>(list.Count);
-            foreach (var gameObject in list)
-                if (!remove.Contains(gameObject))
-                    keep.Add(gameObject);
-            list.Clear();
-            list.AddRange(keep);
-        }
-
-        private Dictionary<GameObject, int> VitaChildOwners()
-        {
-            var owners = new Dictionary<GameObject, int>();
-            foreach (var entry in VitaChildren)
-                foreach (var child in entry.Value)
-                    owners[child] = entry.Key;
-            return owners;
+            var write = 0;
+            for (var read = 0; read < list.Count; read++)
+                if (!remove.Contains(list[read]))
+                    list[write++] = list[read];
+            list.RemoveRange(write, list.Count - write);
         }
 
         // False when an object that is gone cannot be traced back to a map entry that could create it again.
@@ -257,16 +291,41 @@ REPLACE
         {
             if (VitaInitialObjects == null || VitaItemObjects == null)
                 return false;
-            var fromMapFile = new HashSet<GameObject>(VitaItemObjects);
-            var childOwners = VitaChildOwners();
             foreach (var gameObject in VitaInitialObjects)
             {
-                if (VitaGone(gameObject) && !fromMapFile.Contains(gameObject) && !childOwners.ContainsKey(gameObject))
+                if (VitaGone(gameObject) && gameObject.VitaEntry < 0)
                 {
                     System.Console.WriteLine("map reuse: rebuilding, destroyed " + gameObject.GetType().Name);
                     return false;
                 }
             }
+            return true;
+        }
+
+        private bool VitaChildrenIntact(int index)
+        {
+            if (VitaChildren.TryGetValue(index, out var children))
+                foreach (var child in children)
+                    if (!VitaInitialObjects.Contains(child) || !VitaIsStatic(child) || VitaGone(child))
+                        return false;
+            return true;
+        }
+
+        // Static entries like ObjFence only spawn their parts and mark themselves dead; nothing to redo while the
+        // parts are still there.
+        private bool VitaPlacedPartsIntact(int index, GameObject gameObject)
+        {
+            return gameObject.IsDead && !VitaInitialObjects.Contains(gameObject) && VitaIsStatic(gameObject) && VitaChildrenIntact(index);
+        }
+
+        // A stone spawner's only state is visibility (its stones hide over dug holes); reset it like a fresh load.
+        private bool VitaResetStoneSpawner(int index, GameObject gameObject)
+        {
+            var spawner = gameObject as ProjectZ.InGame.GameObjects.Things.ObjStoneSpawner;
+            if (spawner == null || !VitaInitialObjects.Contains(spawner) || VitaGone(spawner) || !VitaChildrenIntact(index))
+                return false;
+            spawner.IsActive = true;
+            spawner.Hidden = false;
             return true;
         }
 
@@ -280,38 +339,42 @@ REPLACE
             for (var i = 0; i < VitaItemObjects.Count; i++)
             {
                 var gameObject = VitaItemObjects[i];
+                if (gameObject != null && (VitaPlacedPartsIntact(i, gameObject) || VitaResetStoneSpawner(i, gameObject)))
+                    continue;
                 if (gameObject == null || !VitaInitialObjects.Contains(gameObject) || !VitaIsStatic(gameObject) || VitaGone(gameObject))
                     recreateSet.Add(i);
             }
-            var childOwners = VitaChildOwners();
             foreach (var gameObject in VitaInitialObjects)
-                if (VitaGone(gameObject) && childOwners.TryGetValue(gameObject, out var owner))
-                    recreateSet.Add(owner);
+                if (VitaGone(gameObject) && gameObject.VitaEntry >= 0)
+                    recreateSet.Add(gameObject.VitaEntry);
             // In map file order, as LoadObjects creates them.
             var recreate = new List<int>(recreateSet);
             recreate.Sort();
 
             // Runtime spawns do not exist in a freshly loaded map; the entries above are replaced completely.
-            var inPool = new HashSet<GameObject>(_poolSpawnedObjects);
+            var inPool = ++_vitaStamp;
             var remove = new HashSet<GameObject>();
             foreach (var gameObject in _poolSpawnedObjects)
+            {
+                gameObject.VitaStamp = inPool;
                 if (!VitaInitialObjects.Contains(gameObject) || gameObject.IsDead)
                     remove.Add(gameObject);
+            }
             foreach (var i in recreate)
             {
                 var item = VitaItemObjects[i];
-                if (item != null && inPool.Contains(item))
+                if (item != null && item.VitaStamp == inPool)
                     remove.Add(item);
                 if (VitaChildren.TryGetValue(i, out var children))
                     foreach (var child in children)
-                        if (inPool.Contains(child))
+                        if (child.VitaStamp == inPool)
                             remove.Add(child);
             }
             remove.Remove(MapManager.ObjLink);
             VitaRemoveObjects(remove);
 
             // Create them again in the same steps as LoadObjects.
-            _vitaOwnerOf = new Dictionary<GameObject, int>();
+            _vitaCreating = true;
             var firstNew = _poolSpawnedObjects.Count;
             foreach (var i in recreate)
             {
@@ -332,7 +395,7 @@ REPLACE
                 AddObjectToMap(gameObject, isB);
                 VitaItemObjects[i] = gameObject;
                 if (gameObject != null)
-                    _vitaOwnerOf[gameObject] = i;
+                    gameObject.VitaEntry = i;
                 VitaNoteSpawns(i, spawnedBefore);
             }
             AddSpawnedObjects(true);
@@ -347,7 +410,7 @@ REPLACE
             AddSpawnedObjects();
             for (var i = firstNew; i < _poolSpawnedObjects.Count; i++)
                 VitaInitialObjects.Add(_poolSpawnedObjects[i]);
-            _vitaOwnerOf = null;
+            _vitaCreating = false;
 
             _resetPending = false;
             _holeResetPending = false;

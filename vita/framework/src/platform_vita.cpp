@@ -23,7 +23,8 @@
 extern "C" {
 int sceUserMainThreadStackSize = 8 * 1024 * 1024;
 // newlib heap backs malloc and the GC heap (via sbrk); GPU memory comes from separate memblocks.
-unsigned int _newlib_heap_size_user = 192 * 1024 * 1024;
+// 192 MB left 127 MB of user memory unallocated at the first frame (device log 2026-10-30); 256 MB keeps ~60 MB free.
+unsigned int _newlib_heap_size_user = 256 * 1024 * 1024;
 // bdwgc's NOSYS/ARM32 configuration reads the main stack bottom from here.
 void* __stack_base__ = nullptr;
 void GC_init(void);

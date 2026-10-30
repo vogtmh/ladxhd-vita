@@ -113,6 +113,9 @@ static void ensureStarted() {
     plat::audioInit(kRate, mix);
 }
 
+// Opening the output takes ~0.5 s on the Vita; done on the first sound it stalled the intro as its music started.
+void startOutput() { ensureStarted(); }
+
 int allocVoice() {
     ensureStarted();
     for (int i = 0; i < kVoices; i++)

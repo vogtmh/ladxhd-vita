@@ -73,6 +73,7 @@ struct HitchProbe {
 };
 namespace audio {
 extern std::atomic<int> underruns;
+void startOutput();
 }  // namespace audio
 namespace plat {
 bool diagnosticsEnabled() { return overlay::active() || perfRequested; }
@@ -255,6 +256,7 @@ void Game::Run() {
     window->bounds = Rectangle(0, 0, dw, dh);
     content->device = gd;
     fw::initAutomation();
+    fw::audio::startOutput();
     Initialize();
     auto* gt = New<GameTime>();
     double last = fw::plat::timeSeconds();
@@ -373,6 +375,10 @@ void Game::Run() {
                           fw::loadStats.readSeconds, fw::gfx::gpuStats.uploadSeconds, (unsigned)GC_get_gc_no(),
                           GC_get_full_gc_total_time());
             fw::plat::log(msg);
+            auto memory = fw::plat::memoryInfo();
+            fw::plat::logf("memory: used %u of %u MB%s, unallocated %u MB user, %u MB cdram (known %d)\n",
+                           (unsigned)(memory.used >> 20), (unsigned)(memory.budget >> 20), memory.heapOnly ? " (heap only)" : "",
+                           (unsigned)(memory.systemFree >> 20), (unsigned)(memory.graphicsFree >> 20), (int)memory.freeKnown);
         }
         if (fw::stats.frames == 30) fw::reportStats();
     }

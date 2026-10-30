@@ -1,0 +1,45 @@
+Vita startup: the render targets were created (and created again for the post-load size) on the first update after
+the 1.5 s black start delay, which is exactly when the intro music starts. The ~16 GXM render targets took ~0.5 s,
+so the music ran dry right away and the intro stuttered. They are now created during the black delay.
+
+FILE Game1.cs
+FIND
+                if (_startDelayElapsed < _startDelayTime)
+                    return;
+
+                _startDelayFinished = true;
+REPLACE
+                if (_startDelayElapsed < _startDelayTime)
+                {
+                    if (!_vitaTargetsCreated && Graphics.GraphicsDevice != null)
+                    {
+                        _vitaTargetsCreated = true;
+                        if (_finishedLoading && !_initRenderTargets)
+                        {
+                            _initRenderTargets = true;
+                            WindowWidth = 0;
+                            WindowHeight = 0;
+                            WindowWidthEnd = 0;
+                            WindowHeightEnd = 0;
+                        }
+                        RefreshPresentationSize();
+                        if (ScaleChanged)
+                            UpdateScale();
+                        UpdateRenderTargets();
+                    }
+                    return;
+                }
+
+                _startDelayFinished = true;
+END
+
+FILE Game1.cs
+FIND
+        private void LoadContentThreaded(Object obj)
+        {
+REPLACE
+        private bool _vitaTargetsCreated;
+
+        private void LoadContentThreaded(Object obj)
+        {
+END

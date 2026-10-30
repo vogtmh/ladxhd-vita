@@ -895,6 +895,10 @@ void List<T>::AddRange(IEnumerable<T>* src) {
 }
 template <class T>
 void HashSet<T>::UnionWith(IEnumerable<T>* src) {
+    if (auto* l = dynamic_cast<List<T>*>(src)) {
+        for (int32_t i = 0; i < l->size; i++) Add(l->items->data[i]);
+        return;
+    }
     for (auto v : Each(src)) Add(v);
 }
 }  // namespace Collections::Generic

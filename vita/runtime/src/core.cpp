@@ -80,10 +80,11 @@ void Collect() {
                   (unsigned)(GC_get_heap_size() >> 20), (unsigned)(before >> 20), (unsigned)(heapInUse() >> 20));
     rt_log(msg);
 }
-// GC.Collect(generation): 2 always collects, 1 collects above 40% of the heap limit (a cheap moment: little is
-// live), 0 only above 60%.
+// GC.Collect(generation): 2 always collects, 1 collects above 64 MB in use (a cheap moment: little is live), 0 only
+// above 96 MB. Fixed sizes, not shares of the limit: with the 224 MB Vita limit the ~60 MB of overworld load garbage
+// was no longer collected behind the black screen.
 void CollectGeneration(int32_t generation) {
-    size_t threshold = generation >= 2 ? 0 : g_heapLimit / 10 * (generation == 1 ? 4 : 6);
+    size_t threshold = generation >= 2 ? 0 : (generation == 1 ? 64u : 96u) << 20;
     if (heapInUse() > threshold) Collect();
 }
 // GC.TryStartNoGCRegion(bytes): called before each map load; makes room up front so the load doesn't hit the heap
@@ -261,6 +262,34 @@ String* String::Literal(const char16_t* p, int32_t len) {
     return s;
 }
 String* String::FromUtf8(const char* p) { return p ? FromUtf8(p, std::strlen(p)) : nullptr; }
+// Parsed data (map files, data grids) is mostly empty and one-digit cells; those strings are shared. Only for
+// results nobody writes into (FromUtf16 results are filled in by ToUpper, Replace, ...).
+String* SharedString(const char16_t* p, int32_t len) {
+    if (len == 0) return String::Empty;
+    if (len == 1 && p[0] < 128) {
+        static String** cache = (String**)GC_malloc_uncollectable(128 * sizeof(String*));
+        String*& s = cache[p[0]];
+        if (!s) s = String::FromUtf16(p, 1);
+        return s;
+    }
+    return String::FromUtf16(p, len);
+}
+Object* BoxInt32(int32_t v) {
+    constexpr int32_t kMin = -128, kMax = 1023;
+    if (v < kMin || v > kMax) {
+        auto* b = new Boxed<int32_t>();
+        b->value = v;
+        return b;
+    }
+    static Object** cache = (Object**)GC_malloc_uncollectable((kMax - kMin + 1) * sizeof(Object*));
+    Object*& o = cache[v - kMin];
+    if (!o) {
+        auto* b = new Boxed<int32_t>();
+        b->value = v;
+        o = b;
+    }
+    return o;
+}
 String* String::FromUtf8(const char* p, size_t n) {
     std::u16string out;
     out.reserve(n);
@@ -396,7 +425,7 @@ String* String::Substring(int32_t start) { return Substring(start, length - star
 String* String::Substring(int32_t start, int32_t len) {
     if (start < 0 || len < 0 || start + len > length) throw NewEx<ArgumentOutOfRangeException>(STR(u"Substring index out of range"));
     if (start == 0 && len == length) return this;
-    return FromUtf16(chars + start, len);
+    return SharedString(chars + start, len);
 }
 String* String::Insert(int32_t start, String* v) {
     auto* r = Alloc(length + v->length);
@@ -413,8 +442,10 @@ String* String::Remove(int32_t start, int32_t count) {
     return r;
 }
 String* String::Replace(char16_t a, char16_t b) {
+    int32_t first = IndexOf(a);
+    if (first < 0) return this;
     auto* r = FromUtf16(chars, length);
-    for (int32_t i = 0; i < length; i++)
+    for (int32_t i = first; i < length; i++)
         if (r->chars[i] == a) r->chars[i] = b;
     return r;
 }
@@ -436,13 +467,19 @@ String* String::Replace(String* a, String* b, StringComparison c) {
     return changed ? FromUtf16(out.data(), (int32_t)out.size()) : this;
 }
 String* String::ToLower() {
+    int32_t i = 0;
+    while (i < length && lowerC(chars[i]) == chars[i]) i++;
+    if (i == length) return this;
     auto* r = FromUtf16(chars, length);
-    for (int32_t i = 0; i < length; i++) r->chars[i] = lowerC(r->chars[i]);
+    for (; i < length; i++) r->chars[i] = lowerC(r->chars[i]);
     return r;
 }
 String* String::ToUpper() {
+    int32_t i = 0;
+    while (i < length && upperC(chars[i]) == chars[i]) i++;
+    if (i == length) return this;
     auto* r = FromUtf16(chars, length);
-    for (int32_t i = 0; i < length; i++) r->chars[i] = upperC(r->chars[i]);
+    for (; i < length; i++) r->chars[i] = upperC(r->chars[i]);
     return r;
 }
 static String* trimImpl(String* s, bool start, bool end, const char16_t* set, int32_t n) {
@@ -492,7 +529,7 @@ static Array1<String*>* splitImpl(String* s, const char16_t* seps, int32_t nseps
     bool removeEmpty = ((int32_t)opt & 1) != 0;
     bool trim = ((int32_t)opt & 2) != 0;
     auto add = [&](int32_t a, int32_t b) {
-        String* p = String::FromUtf16(s->chars + a, b - a);
+        String* p = SharedString(s->chars + a, b - a);
         if (trim) p = p->Trim();
         if (removeEmpty && p->length == 0) return;
         parts->Add(p);
@@ -531,26 +568,58 @@ Array1<String*>* String::Split(String* sep, StringSplitOptions o) {
 }
 Array1<String*>* String::Split(Array1<String*>* seps, StringSplitOptions o) { return splitImpl(this, nullptr, 0, seps, 0, o); }
 
+// Animation names and similar keys are concatenated every frame ("walk_" + direction); short results are shared
+// through a small cache so gameplay produces no garbage. Strings are immutable, so only reference identity differs.
+namespace {
+constexpr int32_t kConcatCacheMaxLength = 40;
+constexpr uint32_t kConcatCacheSlots = 1024;
+String* concatParts(String* const* parts, int count, int32_t n) {
+    if (n > kConcatCacheMaxLength) {
+        auto* r = String::Alloc(n);
+        int32_t k = 0;
+        for (int i = 0; i < count; i++)
+            if (parts[i]) { std::memcpy(r->chars + k, parts[i]->chars, (size_t)parts[i]->length * 2); k += parts[i]->length; }
+        return r;
+    }
+    static String** cache = (String**)GC_malloc_uncollectable(kConcatCacheSlots * sizeof(String*));
+    uint32_t h = 2166136261u;
+    for (int i = 0; i < count; i++)
+        if (parts[i])
+            for (int32_t j = 0; j < parts[i]->length; j++) h = (h ^ parts[i]->chars[j]) * 16777619u;
+    String*& slot = cache[h & (kConcatCacheSlots - 1)];
+    if (slot && slot->length == n) {
+        bool same = true;
+        int32_t k = 0;
+        for (int i = 0; i < count && same; i++)
+            if (parts[i]) {
+                same = std::memcmp(slot->chars + k, parts[i]->chars, (size_t)parts[i]->length * 2) == 0;
+                k += parts[i]->length;
+            }
+        if (same) return slot;
+    }
+    auto* r = String::Alloc(n);
+    int32_t k = 0;
+    for (int i = 0; i < count; i++)
+        if (parts[i]) { std::memcpy(r->chars + k, parts[i]->chars, (size_t)parts[i]->length * 2); k += parts[i]->length; }
+    slot = r;
+    return r;
+}
+}  // namespace
+
 String* String::Concat(String* a, String* b) {
     if (!a) a = Empty;
     if (!b) b = Empty;
     if (a->length == 0) return b;
     if (b->length == 0) return a;
-    auto* r = Alloc(a->length + b->length);
-    std::memcpy(r->chars, a->chars, (size_t)a->length * 2);
-    std::memcpy(r->chars + a->length, b->chars, (size_t)b->length * 2);
-    return r;
+    String* parts[] = {a, b};
+    return concatParts(parts, 2, a->length + b->length);
 }
 String* String::Concat(String* a, String* b, String* c) { return ConcatN({a, b, c}); }
 String* String::Concat(String* a, String* b, String* c, String* d) { return ConcatN({a, b, c, d}); }
 String* String::ConcatN(std::initializer_list<String*> parts) {
     int32_t n = 0;
     for (auto* p : parts) if (p) n += p->length;
-    auto* r = Alloc(n);
-    int32_t k = 0;
-    for (auto* p : parts)
-        if (p) { std::memcpy(r->chars + k, p->chars, (size_t)p->length * 2); k += p->length; }
-    return r;
+    return concatParts(parts.begin(), (int)parts.size(), n);
 }
 String* String::Join(String* sep, Array1<String*>* values) {
     std::u16string out;
@@ -606,7 +675,18 @@ String* String::Format(String* fmt, Object* a, Object* b, Object* c) { return Fo
 // ---------------------------------------------------------------- ToStr / formatting
 String* ToStr(bool v) { return v ? STR(u"True") : STR(u"False"); }
 String* ToStr(char16_t v) { return String::FromUtf16(&v, 1); }
-String* ToStr(int32_t v) { char b[16]; std::snprintf(b, sizeof b, "%d", v); return String::FromUtf8(b); }
+String* ToStr(int32_t v) {
+    constexpr int32_t kMin = -16, kMax = 255;
+    if (v >= kMin && v <= kMax) {
+        static String** cache = (String**)GC_malloc_uncollectable((kMax - kMin + 1) * sizeof(String*));
+        String*& s = cache[v - kMin];
+        if (!s) { char b[8]; std::snprintf(b, sizeof b, "%d", (int)v); s = String::FromUtf8(b); }
+        return s;
+    }
+    char b[16];
+    std::snprintf(b, sizeof b, "%d", v);
+    return String::FromUtf8(b);
+}
 String* ToStr(uint32_t v) { char b[16]; std::snprintf(b, sizeof b, "%u", v); return String::FromUtf8(b); }
 String* ToStr(int64_t v) { char b[32]; std::snprintf(b, sizeof b, "%lld", (long long)v); return String::FromUtf8(b); }
 String* ToStr(uint64_t v) { char b[32]; std::snprintf(b, sizeof b, "%llu", (unsigned long long)v); return String::FromUtf8(b); }

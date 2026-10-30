@@ -1,0 +1,243 @@
+Garbage produced every frame. Collections only run during map transitions on the Vita, so everything allocated
+while playing piles up until the heap limit forces a full collection (about a second). These are the remaining
+per-frame allocations found by profiling the overworld and a house while standing still.
+
+The UI copied its element lists with ToList() twice per frame, and string[].Contains (LINQ) allocated an array
+wrapper and an enumerator per element: more than half of the per-frame garbage.
+
+FILE Base/UI/UIManager.cs
+FIND
+        private IEnumerable<UiElement> AllElements => _elementList.Concat(_elementListNoHide);
+REPLACE
+        private IEnumerable<UiElement> AllElements => _elementList.Concat(_elementListNoHide);
+
+        private readonly List<UiElement> _vitaDrawList = new List<UiElement>();
+
+        // A copy, as ToList() made: elements added or removed while drawing don't affect the pass.
+        private List<UiElement> VitaSnapshot(List<UiElement> first, List<UiElement> second)
+        {
+            _vitaDrawList.Clear();
+            for (var i = 0; i < first.Count; i++)
+                _vitaDrawList.Add(first[i]);
+            if (second != null)
+                for (var i = 0; i < second.Count; i++)
+                    _vitaDrawList.Add(second[i]);
+            return _vitaDrawList;
+        }
+
+        private bool VitaOnScreen(UiElement element)
+        {
+            var screens = element.Screens;
+            for (var i = 0; i < screens.Length; i++)
+                if (screens[i] == _currentScreen)
+                    return true;
+            return false;
+        }
+END
+
+FILE Base/UI/UIManager.cs
+FIND
+            foreach (var element in AllElements.ToList())
+                if (element.Screens.Contains(_currentScreen) && element.IsVisible)
+                    element.Draw(spriteBatch);
+REPLACE
+            foreach (var element in VitaSnapshot(_elementList, _elementListNoHide))
+                if (VitaOnScreen(element) && element.IsVisible)
+                    element.Draw(spriteBatch);
+END
+
+FILE Base/UI/UIManager.cs
+FIND
+            foreach (var element in _elementListNoHide.ToList())
+                if (element.Screens.Contains(_currentScreen) && element.IsVisible)
+                    element.DrawBlur(spriteBatch);
+REPLACE
+            foreach (var element in VitaSnapshot(_elementListNoHide, null))
+                if (VitaOnScreen(element) && element.IsVisible)
+                    element.DrawBlur(spriteBatch);
+END
+
+FILE Base/UI/UIManager.cs
+FIND
+            foreach (var element in _elementList.ToList())
+                if (element.Screens.Contains(_currentScreen) && element.IsVisible)
+                    element.DrawBlur(spriteBatch);
+REPLACE
+            foreach (var element in VitaSnapshot(_elementList, null))
+                if (VitaOnScreen(element) && element.IsVisible)
+                    element.DrawBlur(spriteBatch);
+END
+
+The music player allocated a new byte array for every 10 ms chunk. The port's DynamicSoundEffectInstance copies
+submitted data, so a chunk's array can be reused as soon as it has been handed over.
+
+FILE GbsPlayer/CDynamicEffectInstance.cs
+FIND
+        private int _isDisposed;
+REPLACE
+        private int _isDisposed;
+
+        private readonly System.Collections.Generic.List<byte[]> _vitaFreeBuffers = new System.Collections.Generic.List<byte[]>();
+
+        public byte[] VitaRentBuffer(int size)
+        {
+            while (_vitaFreeBuffers.Count > 0)
+            {
+                var buffer = _vitaFreeBuffers[_vitaFreeBuffers.Count - 1];
+                _vitaFreeBuffers.RemoveAt(_vitaFreeBuffers.Count - 1);
+                if (buffer.Length >= size)
+                    return buffer;
+            }
+            return new byte[size];
+        }
+END
+
+FILE GbsPlayer/CDynamicEffectInstance.cs
+FIND
+                _instance.SubmitBuffer(chunk.Buffer, chunk.Offset, chunk.Count);
+                submitted++;
+REPLACE
+                _instance.SubmitBuffer(chunk.Buffer, chunk.Offset, chunk.Count);
+                _vitaFreeBuffers.Add(chunk.Buffer);
+                submitted++;
+END
+
+FILE GbsPlayer/CDynamicEffectInstance.cs
+FIND
+            while (_pcmQueue.TryDequeue(out _))
+            {
+REPLACE
+            while (_pcmQueue.TryDequeue(out var drained))
+            {
+                _vitaFreeBuffers.Add(drained.Buffer);
+END
+
+FILE GbsPlayer/Sound.cs
+FIND
+            var copy = new byte[_bufferIndex];
+            Buffer.BlockCopy(_soundBuffer, 0, copy, 0, _bufferIndex);
+
+            _soundOutput.SubmitBuffer(copy, 0, copy.Length);
+REPLACE
+            var copy = _soundOutput.VitaRentBuffer(_soundBuffer.Length);
+            Buffer.BlockCopy(_soundBuffer, 0, copy, 0, _bufferIndex);
+
+            _soundOutput.SubmitBuffer(copy, 0, _bufferIndex);
+END
+
+Sound effects were copied with ToList() every frame, even when none were playing.
+
+FILE InGame/Audio/AudioManager.cs
+FIND
+            foreach (var soundEffect in CurrentSoundEffects.ToList())
+            {
+                if (CurrentSoundEffects[soundEffect.Key].LowerMusicVolume)
+REPLACE
+            foreach (var soundEffect in CurrentSoundEffects.Count == 0 ? _vitaNoSoundEffects : CurrentSoundEffects.ToList())
+            {
+                if (CurrentSoundEffects[soundEffect.Key].LowerMusicVolume)
+END
+
+FILE InGame/Audio/AudioManager.cs
+FIND
+        public void UpdateSoundEffects()
+        {
+REPLACE
+        private static readonly List<KeyValuePair<string, PlayingSoundEffect>> _vitaNoSoundEffects = new List<KeyValuePair<string, PlayingSoundEffect>>();
+
+        public void UpdateSoundEffects()
+        {
+END
+
+Link's sword/NPC check created a new list every frame.
+
+FILE InGame/GameObjects/ObjLink.cs
+FIND
+        private bool CheckNPCAvoidance()
+        {
+            // Get a list of NPCs to check if sword crosses their hitbox.
+            List<GameObject> npcList = new List<GameObject>();
+REPLACE
+        private readonly List<GameObject> _vitaNpcList = new List<GameObject>();
+
+        private bool CheckNPCAvoidance()
+        {
+            // Get a list of NPCs to check if sword crosses their hitbox.
+            var npcList = _vitaNpcList;
+            npcList.Clear();
+END
+
+The light sort created its comparison delegate every frame.
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+            _lightObjectList.Sort((obj0, obj1) =>
+            {
+                var light0 = (LightDrawComponent)obj0.Components[LightDrawComponent.Index];
+                var light1 = (LightDrawComponent)obj1.Components[LightDrawComponent.Index];
+
+                if (light0 != null && light1 != null)
+                {
+                    if (light0.Layer == light1.Layer &&
+                        light0.Owner.EntityPosition != null && light1.Owner.EntityPosition != null)
+                        return (int)light0.Owner.EntityPosition.Y - (int)light1.Owner.EntityPosition.Y;
+
+                    return light0.Layer - light1.Layer;
+                }
+                return 0;
+            });
+REPLACE
+            _lightObjectList.Sort(VitaLightOrder);
+END
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+        public void DrawLight(SpriteBatch spriteBatch)
+        {
+REPLACE
+        private static readonly Comparison<GameObject> VitaLightOrder = VitaCompareLights;
+
+        private static int VitaCompareLights(GameObject obj0, GameObject obj1)
+        {
+            var light0 = (LightDrawComponent)obj0.Components[LightDrawComponent.Index];
+            var light1 = (LightDrawComponent)obj1.Components[LightDrawComponent.Index];
+
+            if (light0 != null && light1 != null)
+            {
+                if (light0.Layer == light1.Layer &&
+                    light0.Owner.EntityPosition != null && light1.Owner.EntityPosition != null)
+                    return (int)light0.Owner.EntityPosition.Y - (int)light1.Owner.EntityPosition.Y;
+
+                return light0.Layer - light1.Layer;
+            }
+            return 0;
+        }
+
+        public void DrawLight(SpriteBatch spriteBatch)
+        {
+END
+
+Every music tile parsed the overworld music map file again, also when a kept overworld recreates it on return
+from a house (1.6 MB per return). The parsed data is never modified, so tiles share it.
+
+FILE InGame/GameObjects/Things/ObjMusicTile.cs
+FIND
+            _musicData = DataMapSerializer.LoadData(Path.Combine(Values.PathDataFolder, musicTileData));
+REPLACE
+            var path = Path.Combine(Values.PathDataFolder, musicTileData);
+            if (path != _vitaDataPath)
+            {
+                _vitaData = DataMapSerializer.LoadData(path);
+                _vitaDataPath = path;
+            }
+            _musicData = _vitaData;
+END
+
+FILE InGame/GameObjects/Things/ObjMusicTile.cs
+FIND
+        private string[,] _musicData;
+REPLACE
+        private string[,] _musicData;
+        private static string _vitaDataPath;
+        private static string[,] _vitaData;
+END

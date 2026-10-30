@@ -343,9 +343,12 @@ struct Boxed final : BoxBase {
         else return false;
     }
 };
+// Boxes of common small ints are shared (boxes are immutable).
+Object* BoxInt32(int32_t v);
 template <class T>
 inline Object* box(const T& v) {
     if constexpr (std::is_pointer_v<T>) return AsObject(v);
+    else if constexpr (std::is_same_v<T, int32_t>) return BoxInt32(v);
     else {
         auto* b = new Boxed<T>();
         b->value = v;

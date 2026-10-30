@@ -1,0 +1,65 @@
+Short-lived objects (bush leaves, respawners, items) were expensive on the Vita.
+
+Removing one object searched the overworld's 21,000-entry spawn list from the front with a virtual Equals call per
+entry, so every element was read from a different cache line. A cut bush removes the bush first, then its four
+leaves: about 0.2-0.4 ms per frame on desktop, several ms on the Vita. Runtime spawns sit at the end of the list,
+and GameObject never overrides Equals, so the list is now searched from the back by reference.
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+            gameObject.Map = null;
+
+            _poolSpawnedObjects.Remove(gameObject);
+REPLACE
+            gameObject.Map = null;
+
+            for (var i = _poolSpawnedObjects.Count - 1; i >= 0; i--)
+            {
+                if (ReferenceEquals(_poolSpawnedObjects[i], gameObject))
+                {
+                    _poolSpawnedObjects.RemoveAt(i);
+                    break;
+                }
+            }
+END
+
+SystemAi copied each object's trigger lists with ToList() on every frame: two lists and two arrays per AI object,
+about two thirds of everything the game allocated per frame (collections only run during map transitions here).
+Each leaf of a cut bush is an AI object. The triggers are now copied into one reused buffer.
+
+FILE InGame/GameObjects/Base/Systems/SystemAi.cs
+FIND
+                    aiComponent.CurrentState.Update?.Invoke();
+                    foreach (var trigger in aiComponent.CurrentState.Trigger.ToList())
+                        trigger.Update();
+                    foreach (var trigger in aiComponent.Trigger.ToList())
+                        trigger.Update();
+REPLACE
+                    aiComponent.CurrentState.Update?.Invoke();
+                    UpdateTriggers(aiComponent.CurrentState.Trigger);
+                    UpdateTriggers(aiComponent.Trigger);
+END
+
+FILE InGame/GameObjects/Base/Systems/SystemAi.cs
+FIND
+        public SystemAi(ObjectManager objectManager)
+        {
+REPLACE
+        private readonly List<Components.AI.AiTrigger> _triggerBuffer = new List<Components.AI.AiTrigger>();
+
+        // Iterates a copy, as ToList() did: a trigger may change the list it is in.
+        private void UpdateTriggers(List<Components.AI.AiTrigger> triggers)
+        {
+            if (triggers.Count == 0)
+                return;
+            _triggerBuffer.Clear();
+            for (var i = 0; i < triggers.Count; i++)
+                _triggerBuffer.Add(triggers[i]);
+            for (var i = 0; i < _triggerBuffer.Count; i++)
+                _triggerBuffer[i].Update();
+            _triggerBuffer.Clear();
+        }
+
+        public SystemAi(ObjectManager objectManager)
+        {
+END
