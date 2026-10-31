@@ -1,0 +1,69 @@
+Vita: the map view of the inventory (Select) showed the 144x144 map at the UI scale (2x, 288 px), small on the Vita
+screen. The map is now drawn straight to the screen instead of into the menu target, and while it slides to the
+middle it grows to the largest whole-number scale that fits (3x, 432 px), above the text box that describes the
+selected area.
+
+FILE InGame/Overlay/MapOverlay.cs
+FIND
+        private float _scale => Game1.GameManager.InGameOverlay.Scale;
+REPLACE
+        // Set by the inventory while it draws the map larger than the rest of the menu.
+        public float VitaDrawScale;
+        private float _scale => VitaDrawScale > 0 ? VitaDrawScale : Game1.GameManager.InGameOverlay.Scale;
+END
+
+FILE InGame/Overlay/OverlayManager.cs
+FIND
+            // Draw the map onto the inventory screen.
+            var mapRectangle = new Rectangle(
+                (int)MathHelper.Lerp(_recMap.X, _recMapCenter.X, percentage),
+                (int)MathHelper.Lerp(_recMap.Y, _recMapCenter.Y, percentage), _recMap.Width, _recMap.Height);
+            _mapOverlay.Draw(spriteBatch, mapRectangle, Color.White);
+
+REPLACE
+END
+
+FILE InGame/Overlay/OverlayManager.cs
+FIND
+                    spriteBatch.Draw(_menuRenderTarget2D, new Rectangle(
+                        (int)_menuPosition.X + dungeonOffset, (int)(_menuPosition.Y - menuY), _overlayWidth, _overlayHeight), menuColor);
+REPLACE
+                    spriteBatch.Draw(_menuRenderTarget2D, new Rectangle(
+                        (int)_menuPosition.X + dungeonOffset, (int)(_menuPosition.Y - menuY), _overlayWidth, _overlayHeight), menuColor);
+                    VitaDrawMap(spriteBatch, new Vector2((int)_menuPosition.X + dungeonOffset, (int)(_menuPosition.Y - menuY)), menuY, menuColor);
+END
+
+FILE InGame/Overlay/OverlayManager.cs
+FIND
+        private void EnsureMenuRenderTarget()
+        {
+REPLACE
+        private void VitaDrawMap(SpriteBatch spriteBatch, Vector2 menuOrigin, float menuY, Color color)
+        {
+            // Same easing as DrawInventory: 0 = map inside the inventory, 1 = map view.
+            var percentage = MathF.Sin(-MathF.PI / 2 + (_changeCount / ChangeTime) * MathF.PI) * 0.5f + 0.5f;
+
+            const int margin = 8;
+            var bigScale = _scale;
+            while (_mapSize.Y * (bigScale + 1) <= Game1.WindowHeight - 2 * margin)
+                bigScale++;
+            var bigSize = _mapSize.Y * bigScale;
+            var textboxTop = TextboxOverlay.DialogBoxTextBox.Y - 8 * _scale;
+            var bigY = MathF.Max(margin, MathF.Min((Game1.WindowHeight - bigSize) / 2, textboxTop - bigSize - margin));
+
+            var small = new Vector2(menuOrigin.X + _recMap.X, menuOrigin.Y + _recMap.Y);
+            var big = new Vector2((int)((Game1.WindowWidth - bigSize) / 2), (int)(bigY - menuY));
+            var position = Vector2.Lerp(small, big, percentage);
+            var scale = MathHelper.Lerp(_scale, bigScale, percentage);
+            var size = (int)(_mapSize.Y * scale);
+
+            spriteBatch.End();
+            _mapOverlay.VitaDrawScale = scale;
+            _mapOverlay.Draw(spriteBatch, new Rectangle((int)position.X, (int)position.Y, size, size), color, Game1.GetMatrix);
+            _mapOverlay.VitaDrawScale = 0;
+            spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp, null, null, null, Game1.GetMatrix);
+        }
+
+        private void EnsureMenuRenderTarget()
+        {
+END

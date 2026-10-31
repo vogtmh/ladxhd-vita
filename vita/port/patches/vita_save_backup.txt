@@ -1,0 +1,58 @@
+Vita: save files keep their previous version as "<file>.bak" (the background writer renames the old file instead of
+deleting it). A save, slot or settings file that is missing or unreadable (nothing parsable in it) is loaded from
+its backup instead, so a damaged file costs at most the progress since the save before it. Deleting a slot removes
+the backups too, and copying a slot drops the target's backup, which belonged to the slot's previous contents.
+
+FILE InGame/SaveLoad/SaveManager.cs
+FIND
+        public bool LoadFile(string filePath)
+        {
+            VitaLoadedSaves++;
+REPLACE
+        public bool LoadFile(string filePath)
+        {
+            VitaLoadedSaves++;
+            if (VitaLoadParsed(filePath))
+                return true;
+            var backup = filePath + ".bak";
+            if (!File.Exists(backup) || !VitaLoadParsed(backup))
+            {
+                Reset();
+                return false;
+            }
+            System.Console.WriteLine("save: " + filePath + (File.Exists(filePath) ? " is unreadable" : " is missing") + ", loaded its backup");
+            return true;
+        }
+
+        private bool VitaLoadParsed(string filePath)
+        {
+            return VitaLoadRaw(filePath) &&
+                _boolDictionary.Count + _intDictionary.Count + _floatDictionary.Count + _stringDictionary.Count > 0;
+        }
+
+        private bool VitaLoadRaw(string filePath)
+        {
+END
+
+FILE InGame/SaveLoad/SaveGameSaveLoad.cs
+FIND
+            File.Copy(fromFull, temp, overwrite: true);
+REPLACE
+            File.Copy(fromFull, temp, overwrite: true);
+
+            if (File.Exists(toFull + ".bak"))
+                File.Delete(toFull + ".bak");
+END
+
+FILE InGame/SaveLoad/SaveGameSaveLoad.cs
+FIND
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+                return true;
+REPLACE
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+                if (File.Exists(filePath + ".bak"))
+                    File.Delete(filePath + ".bak");
+                return true;
+END

@@ -23,6 +23,36 @@ REPLACE
             }
 END
 
+FILE InGame/Map/ObjectManager.cs
+FIND
+        private void ClearPools()
+        {
+REPLACE
+        public void VitaUnregisterAlwaysAnimate(GameObject gameObject)
+        {
+            lock (_alwaysAnimateLock)
+                if (_alwaysAnimateSet.Remove(gameObject))
+                    AlwaysAnimateObjectsMain.Remove(gameObject);
+        }
+
+        private void ClearPools()
+        {
+END
+
+Enemies (crows, ravens, bombers, winged octoroks, vires) register their sprite shadow as always animated. After the
+enemy is gone the shadow destroys itself, but stayed in that list: every frame it was updated again and removed
+again, each time scanning the whole object list (21,000 entries on the overworld) without finding itself.
+
+FILE InGame/GameObjects/Things/ObjSpriteShadow.cs
+FIND
+            _drawComponent.IsActive = false;
+            _currentMap.Objects.RemoveObject(this);
+REPLACE
+            _drawComponent.IsActive = false;
+            _currentMap.Objects.RemoveObject(this);
+            _currentMap.Objects.VitaUnregisterAlwaysAnimate(this);
+END
+
 SystemAi copied each object's trigger lists with ToList() on every frame: two lists and two arrays per AI object,
 about two thirds of everything the game allocated per frame (collections only run during map transitions here).
 Each leaf of a cut bush is an AI object. The triggers are now copied into one reused buffer.

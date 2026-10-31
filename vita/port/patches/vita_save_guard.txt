@@ -1,0 +1,34 @@
+Vita: a failing save no longer ends the game. The autosave runs inside the door transition, so any exception while
+building the save state used to abort the map load ("Map loading thread failed") on every door. The exception is
+now logged with its stack and the game continues without that save.
+
+FILE InGame/SaveLoad/SaveGameSaveLoad.cs
+FIND
+        public static void SaveGame(GameManager gameManager, bool showIcon)
+        {
+REPLACE
+        public static void SaveGame(GameManager gameManager, bool showIcon)
+        {
+            try
+            {
+                VitaSaveGame(gameManager, showIcon);
+            }
+            catch (Exception e)
+            {
+                playerSaveState = null;
+                Game1.VitaLogException("Save failed:", e);
+            }
+        }
+
+        private static void VitaSaveGame(GameManager gameManager, bool showIcon)
+        {
+END
+
+FILE Game1.cs
+FIND
+        public static void VitaBackBufferAsTarget(bool on) { }
+REPLACE
+        public static void VitaBackBufferAsTarget(bool on) { }
+
+        public static void VitaLogException(string what, Exception e) { }
+END

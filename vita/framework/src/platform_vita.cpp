@@ -18,6 +18,7 @@
 #include <string>
 #include <algorithm>
 #include <malloc.h>
+#include <pthread.h>
 #include <unistd.h>
 
 extern "C" {
@@ -73,7 +74,44 @@ static void (*mixFn)(int16_t*, int) = nullptr;
 constexpr int kAudioFrames = 1024;
 static SceUID logFd = -1;
 static std::atomic<bool> logDirty{false};
+// Lines are queued and written by ladx_log: a write or sync on the memory card can take hundreds of ms, and the game
+// thread used to wait for it (stress-test frames of ~330 ms while the watchdog synced the file).
+static pthread_mutex_t logMutex = PTHREAD_MUTEX_INITIALIZER;
+// Serialises writers of logWriting; logMutex is never held during I/O.
+static pthread_mutex_t logWriteMutex = PTHREAD_MUTEX_INITIALIZER;
+// Plain buffers: logf runs from static constructors, before any std::string here would be constructed.
+static char logPending[64 * 1024];
+static size_t logPendingLen = 0;
+static char logWriting[sizeof logPending];
+static volatile bool logThreadRunning = false;
+static void logWriteNow(const char* data, size_t n) {
+    if (logFd >= 0 && n > 0 && sceIoWrite(logFd, data, n) > 0) logDirty.store(true);
+}
+static void logWritePending() {
+    pthread_mutex_lock(&logWriteMutex);
+    pthread_mutex_lock(&logMutex);
+    size_t n = logPendingLen;
+    std::memcpy(logWriting, logPending, n);
+    logPendingLen = 0;
+    pthread_mutex_unlock(&logMutex);
+    logWriteNow(logWriting, n);
+    pthread_mutex_unlock(&logWriteMutex);
+}
+static void* logThreadMain(void*) {
+    for (int tick = 1;; tick++) {
+        sceKernelDelayThread(100 * 1000);
+        logWritePending();
+        // A system hang needs a forced power-off, which loses unsynced writes.
+        if (tick % 10 == 0 && logFd >= 0 && logDirty.exchange(false)) sceIoSyncByFd(logFd, 0);
+    }
+    return nullptr;
+}
+void logFlush() {
+    logWritePending();
+    if (logFd >= 0) sceIoSyncByFd(logFd, 0);
+}
 static void gcAbort(const char* msg) {
+    logWritePending();
     if (logFd >= 0 && msg) {
         sceIoWrite(logFd, "GC abort: ", 10);
         sceIoWrite(logFd, msg, std::strlen(msg));
@@ -92,8 +130,6 @@ static int watchdogMain(SceSize, void*) {
     int stuck = 0;
     for (;;) {
         sceKernelDelayThread(1000 * 1000);
-        // A system hang needs a forced power-off, which loses unsynced writes.
-        if (logFd >= 0 && logDirty.exchange(false)) sceIoSyncByFd(logFd, 0);
         unsigned b = g_beat;
         if (b != last) {
             last = b;
@@ -102,7 +138,7 @@ static int watchdogMain(SceSize, void*) {
         }
         if (++stuck == 8) {
             logf("watchdog: game loop stuck for 8 s in '%s' (heartbeat %u), forcing a crash dump\n", g_phase, b);
-            sceIoSyncByFd(logFd, 0);
+            logFlush();
             sceKernelDelayThread(200 * 1000);
             *(volatile int*)nullptr = 0;
         }
@@ -119,6 +155,7 @@ void heartbeat(const char* phase) {
     g_phase = phase;
     g_beat = g_beat + 1;
 }
+void keepAwake() { sceKernelPowerTick(SCE_KERNEL_POWER_TICK_DEFAULT); }
 
 void preInit() {
     static bool done = false;
@@ -145,6 +182,13 @@ void preInit() {
 __attribute__((constructor(101))) static void earlyInit() { preInit(); }
 
 bool init(int width, int height, const char*) {
+    // Until here (static init, startup) lines are written directly.
+    pthread_attr_t logAttr;
+    pthread_attr_init(&logAttr);
+    pthread_attr_setstacksize(&logAttr, 16 * 1024);
+    pthread_t logThread;
+    if (pthread_create(&logThread, &logAttr, logThreadMain, nullptr) == 0) logThreadRunning = true;
+    pthread_attr_destroy(&logAttr);
     scePowerSetArmClockFrequency(444);
     scePowerSetBusClockFrequency(222);
     scePowerSetGpuClockFrequency(222);
@@ -161,7 +205,7 @@ bool init(int width, int height, const char*) {
 void shutdown() {
     audioRunning = false;
     if (audioThread >= 0) sceKernelWaitThreadEnd(audioThread, nullptr, nullptr);
-    if (logFd >= 0) sceIoSyncByFd(logFd, 0);
+    logFlush();
     sceKernelExitProcess(0);
 }
 
@@ -258,7 +302,8 @@ const char* userRoot() { return "ux0:data/ladxhd"; }
 void log(const char* msg) {
     logf("%s\n", msg);
 }
-// Written with sceIo directly: stdio buffers are lost when the app is closed from the PS button.
+// Queued instead of written here (see logThreadMain); sceIo is used because stdio buffers are lost when the app is
+// closed from the PS button.
 void logf(const char* fmt, ...) {
     if (logFd < 0) return;
     char buf[1024];
@@ -266,8 +311,22 @@ void logf(const char* fmt, ...) {
     va_start(ap, fmt);
     int n = std::vsnprintf(buf, sizeof buf, fmt, ap);
     va_end(ap);
-    if (n > 0 && sceIoWrite(logFd, buf, n < (int)sizeof buf ? n : (int)sizeof buf - 1) > 0)
-        logDirty.store(true);
+    if (n <= 0) return;
+    size_t len = n < (int)sizeof buf ? n : (int)sizeof buf - 1;
+    if (logThreadRunning) {
+        pthread_mutex_lock(&logMutex);
+        bool fits = logPendingLen + len <= sizeof logPending;
+        if (fits) {
+            std::memcpy(logPending + logPendingLen, buf, len);
+            logPendingLen += len;
+        }
+        pthread_mutex_unlock(&logMutex);
+        if (fits) return;
+        logWritePending();
+    }
+    pthread_mutex_lock(&logWriteMutex);
+    logWriteNow(buf, len);
+    pthread_mutex_unlock(&logWriteMutex);
 }
 
 struct ThreadStart {

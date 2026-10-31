@@ -50,10 +50,11 @@ int main(int argc, char** argv) {
     // Start with a large heap so loading doesn't run dozens of collections while growing it.
     GC_expand_hp(64 * 1024 * 1024);
     // Keep 32 MB of the 256 MB newlib heap for malloc (image decoding, GXM shader patcher); the GC collects
-    // harder instead of growing past this.
-    rt::ConfigureCollector(224 * 1024 * 1024, true);
+    // harder instead of growing past this. Map loads already collect above 176 MB in use (the device heap stopped
+    // growing at 192 MB).
+    rt::ConfigureCollector(224 * 1024 * 1024, true, 176 * 1024 * 1024);
 #else
-    rt::ConfigureCollector(160 * 1024 * 1024, false);
+    rt::ConfigureCollector(160 * 1024 * 1024, false, 160 * 1024 * 1024);
 #endif
     if (const char* pak = fw::plat::packFile())
         if (!rt::MountPack(pak, fw::plat::contentRoot())) fw::plat::logf("could not mount %s\n", pak);
@@ -88,8 +89,8 @@ int main(int argc, char** argv) {
         svc->AddService(TypeOf<IPhotoPrintService>(), New<UnavailablePhotoPrintService>());
         game->Run();
     } catch (Exception* e) {
-        auto* m = e->get_Message();
-        fw::plat::logf("Unhandled exception %s: %s\n", e->GetType()->fullName->ToUtf8(), m ? m->ToUtf8() : "");
+        rt::LogException("Unhandled", e);
+        fw::plat::logFlush();
         return 1;
     }
     return 0;

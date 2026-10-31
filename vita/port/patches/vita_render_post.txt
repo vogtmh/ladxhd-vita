@@ -1,0 +1,101 @@
+Vita: colour correction and the pixel grid need the finished picture as a texture, so they used to switch the whole
+frame to the PC pipeline (DrawGameRT: separate targets for the world, shadows, light and blur, plus main and
+final copies), which ran at 30 fps (about 12 target switches per frame instead of 6). Now the frame is drawn the
+same single-pass way as without them, only into a target instead of the screen: the world into MainRenderTarget
+when the pixel grid has to scale it over, the whole frame into the final target when colour correction has to be
+applied to it. That is one extra full-screen pass per effect.
+
+FILE Game1.cs
+FIND
+            _directPresent = !GameSettings.ColorCorrection && _finalRenderTarget != null &&
+                             startViewport.X == 0 && startViewport.Y == 0 &&
+                             startViewport.Width == _finalRenderTarget.Width && startViewport.Height == _finalRenderTarget.Height;
+REPLACE
+            _vitaViewportMatches = _finalRenderTarget != null && startViewport.X == 0 && startViewport.Y == 0 &&
+                                   startViewport.Width == _finalRenderTarget.Width && startViewport.Height == _finalRenderTarget.Height;
+            _directPresent = !GameSettings.ColorCorrection && _vitaViewportMatches;
+END
+
+FILE Game1.cs
+FIND
+            ScreenDirect = _directPresent && !pixelGridWanted &&
+                           (GameManager == null || !_finishedLoading || GameManager.CanDrawToScreen());
+            VitaBackBufferAsTarget(ScreenDirect);
+
+            Graphics.GraphicsDevice.SetRenderTarget(ScreenDirect ? null : MainRenderTarget);
+REPLACE
+            ScreenDirect = _vitaViewportMatches && (GameManager == null || !_finishedLoading || GameManager.CanDrawToScreen());
+            VitaWorldTarget = !ScreenDirect ? null : pixelGridWanted ? MainRenderTarget : _directPresent ? null : _finalRenderTarget;
+            // The frozen menu world needs a target of its own that nothing else draws into this frame.
+            VitaFrozenTarget = VitaWorldTarget == null || VitaWorldTarget == _finalRenderTarget ? MainRenderTarget :
+                               _directPresent ? _finalRenderTarget : null;
+            VitaBackBufferAsTarget(ScreenDirect && _directPresent);
+
+            Graphics.GraphicsDevice.SetRenderTarget(ScreenDirect ? VitaWorldTarget : MainRenderTarget);
+END
+
+FILE Game1.cs
+FIND
+            if (!ScreenDirect)
+            {
+                Graphics.GraphicsDevice.SetRenderTarget(_directPresent ? null : _finalRenderTarget);
+                Graphics.GraphicsDevice.Clear(Color.Black);
+            }
+REPLACE
+            // With the pixel grid the world still has to be scaled over into the frame's target.
+            var vitaGridPass = ScreenDirect && VitaWorldTarget == MainRenderTarget;
+            if (!ScreenDirect || vitaGridPass)
+            {
+                Graphics.GraphicsDevice.SetRenderTarget(_directPresent ? null : _finalRenderTarget);
+                Graphics.GraphicsDevice.Clear(Color.Black);
+            }
+END
+
+FILE Game1.cs
+FIND
+            if (!ScreenDirect)
+            {
+                SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
+REPLACE
+            if (!ScreenDirect || vitaGridPass)
+            {
+                SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
+END
+
+FILE Game1.cs
+FIND
+        public static bool ScreenDirect;
+REPLACE
+        public static bool ScreenDirect;
+        // Where the single-pass world drawing goes: the screen (null), MainRenderTarget or the final target.
+        public static RenderTarget2D VitaWorldTarget;
+        public static RenderTarget2D VitaFrozenTarget;
+        private bool _vitaViewportMatches;
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+            var snapshot = InGameOverlay.VitaWorldPaused && !MapManager.ObjLink.IsTransitioning ? Game1.MainRenderTarget : null;
+REPLACE
+            var snapshot = InGameOverlay.VitaWorldPaused && !MapManager.ObjLink.IsTransitioning ? Game1.VitaFrozenTarget : null;
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+            device.SetRenderTarget(_vitaWorldCapture);
+            device.Clear(Color.Black);
+REPLACE
+            device.SetRenderTarget(_vitaWorldCapture ?? Game1.VitaWorldTarget);
+            device.Clear(Color.Black);
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+        private void VitaDrawFrozenWorld(SpriteBatch spriteBatch, RenderTarget2D world)
+        {
+            Game1.Graphics.GraphicsDevice.SetRenderTarget(null);
+REPLACE
+        private void VitaDrawFrozenWorld(SpriteBatch spriteBatch, RenderTarget2D world)
+        {
+            Game1.Graphics.GraphicsDevice.SetRenderTarget(Game1.VitaWorldTarget);
+END

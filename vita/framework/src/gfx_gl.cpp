@@ -402,3 +402,7 @@ bool beReadBackBuffer(int w, int h, uint8_t* rgbaTopDown) {
 }
 
 }  // namespace fw::gfx
+
+namespace fw {
+void holdPacing(int) {}
+}  // namespace fw

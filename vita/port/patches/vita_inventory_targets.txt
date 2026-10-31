@@ -1,0 +1,112 @@
+Vita: opening the inventory dropped the game to 30 fps. The inventory and dungeon panels are drawn into render
+targets every frame, and after a resolution change both targets were sized to the whole screen (960x544) although
+the panels only cover their own area. On the Vita every target pass loads and stores the whole surface, so these two
+cost about as much as two extra full frames on the GPU. Each target is now the size of its panel.
+
+The targets are only (re)created in ResolutionChanged, which runs in the update. A first version resized them
+while drawing the inventory, i.e. created GXM render targets inside an open scene, and broke all rendering on the
+Vita until a restart.
+
+FILE InGame/Overlay/InventoryOverlay.cs
+FIND
+            _width = (int)(width * _scale);
+            _height = (int)(height * _scale);
+
+            _rubeePosition
+REPLACE
+            _width = (int)(width * _scale);
+            _height = (int)(height * _scale);
+            _vitaPanelWidth = width;
+            _vitaPanelHeight = height;
+
+            _rubeePosition
+END
+
+FILE InGame/Overlay/InventoryOverlay.cs
+FIND
+        public void ResolutionChanged()
+        {
+            _width = Game1.WindowWidth;
+            _height = Game1.WindowHeight;
+            UpdateRenderTarget();
+        }
+REPLACE
+        private readonly int _vitaPanelWidth;
+        private readonly int _vitaPanelHeight;
+
+        public void ResolutionChanged()
+        {
+            _width = (int)System.Math.Ceiling(_vitaPanelWidth * _scale);
+            _height = (int)System.Math.Ceiling(_vitaPanelHeight * _scale);
+            UpdateRenderTarget();
+        }
+END
+
+FILE InGame/Overlay/DungeonOverlay.cs
+FIND
+            _width = (int)(width * _scale);
+            _height = (int)(height * _scale);
+
+            _backgroundTop
+REPLACE
+            _width = (int)(width * _scale);
+            _height = (int)(height * _scale);
+            _vitaPanelWidth = width;
+            _vitaPanelHeight = height;
+
+            _backgroundTop
+END
+
+FILE InGame/Overlay/DungeonOverlay.cs
+FIND
+        public void ResolutionChanged()
+        {
+            _width = Game1.WindowWidth;
+            _height = Game1.WindowHeight;
+            UpdateRenderTarget();
+        }
+REPLACE
+        private readonly int _vitaPanelWidth;
+        private readonly int _vitaPanelHeight;
+
+        public void ResolutionChanged()
+        {
+            _width = (int)System.Math.Ceiling(_vitaPanelWidth * _scale);
+            _height = (int)System.Math.Ceiling(_vitaPanelHeight * _scale);
+            UpdateRenderTarget();
+        }
+END
+
+The panels size themselves with the overlay scale, so it has to be updated before they are resized.
+
+FILE InGame/Overlay/OverlayManager.cs
+FIND
+            TextboxOverlay?.ResolutionChange();
+            InGameHud?.ResolutionChange();
+            _inventoryOverlay?.ResolutionChanged();
+            _dungeonOverlay?.ResolutionChanged();
+
+            _blurRectangle.Rectangle.Width = Game1.WindowWidth;
+            _blurRectangle.Rectangle.Height = Game1.WindowHeight;
+
+            // If the user forced a scale via lahdmod use that otherwise use the UI scale.
+            if (inventory_scale_override > 0)
+                _scale = inventory_scale_override;
+            else
+                _scale = Game1.UiScale;
+REPLACE
+            TextboxOverlay?.ResolutionChange();
+            InGameHud?.ResolutionChange();
+
+            _blurRectangle.Rectangle.Width = Game1.WindowWidth;
+            _blurRectangle.Rectangle.Height = Game1.WindowHeight;
+
+            // If the user forced a scale via lahdmod use that otherwise use the UI scale.
+            if (inventory_scale_override > 0)
+                _scale = inventory_scale_override;
+            else
+                _scale = Game1.UiScale;
+
+            _inventoryOverlay?.ResolutionChanged();
+            _dungeonOverlay?.ResolutionChanged();
+END

@@ -5,6 +5,13 @@
 #include <cstring>
 #include <cwctype>
 #include <string>
+#if __has_include(<unwind.h>)
+#include <unwind.h>
+#else
+// The VitaSDK toolchain ships only the ARM EHABI part of unwind.h.
+#include <unwind-arm-common.h>
+#define _Unwind_GetIP(context) (_Unwind_GetGR(context, 15) & ~(_Unwind_Word)1)
+#endif
 #if defined(__vita__)
 #include <malloc.h>
 #endif
@@ -22,6 +29,7 @@ void GC_set_max_retries(unsigned long);
 unsigned long GC_get_full_gc_total_time(void);
 void GC_set_oom_fn(void* (*)(size_t));
 void rt_log(const char*);
+void rt_log_flush(void);
 }
 
 // Collection policy. A full collection costs 0.5-1 s on the Vita, so automatic collections are off and the game
@@ -30,6 +38,11 @@ void rt_log(const char*);
 namespace {
 size_t g_heapLimit = 160u << 20;
 bool g_enforceLimit = false;
+// Map loads collect beforehand once this much would be in use: the newlib heap can't really supply the full
+// limit (device: heap stuck at 192 MB), and a nearly full heap makes every allocation slow.
+size_t g_collectAbove = 160u << 20;
+// In use right after the last collection, i.e. roughly the live data.
+size_t g_liveAfterGc = 0;
 size_t heapInUse() { return GC_get_heap_size() - GC_get_free_bytes(); }
 void* outOfMemory(size_t bytes) {
     char msg[200];
@@ -50,9 +63,10 @@ void* outOfMemory(size_t bytes) {
 
 namespace rt {
 void Init() { GC_init(); }
-void ConfigureCollector(size_t heapLimit, bool enforceLimit) {
+void ConfigureCollector(size_t heapLimit, bool enforceLimit, size_t collectAbove) {
     g_heapLimit = heapLimit;
     g_enforceLimit = enforceLimit;
+    g_collectAbove = collectAbove < heapLimit ? collectAbove : heapLimit;
     if (enforceLimit) GC_set_max_heap_size(heapLimit);
     GC_set_disable_automatic_collection(1);
     GC_set_max_retries(3);
@@ -68,32 +82,56 @@ void* AllocFailed(size_t n, bool atomic) {
         if (void* p = GcAlloc(n, atomic)) return p;
     }
     rt_log("out of memory, giving up");
+    rt_log_flush();
     __builtin_trap();
 }
 void Collect() {
     size_t before = heapInUse();
     unsigned long t0 = GC_get_full_gc_total_time();
     GC_gcollect();
+    g_liveAfterGc = heapInUse();
     char msg[160];
     // The Vita printf has no %zu.
     std::snprintf(msg, sizeof msg, "gc: %lu ms, heap %u MB, in use %u -> %u MB", GC_get_full_gc_total_time() - t0,
                   (unsigned)(GC_get_heap_size() >> 20), (unsigned)(before >> 20), (unsigned)(heapInUse() >> 20));
     rt_log(msg);
 }
-// GC.Collect(generation): 2 always collects, 1 collects above 64 MB in use (a cheap moment: little is live), 0 only
-// above 96 MB. Fixed sizes, not shares of the limit: with the 224 MB Vita limit the ~60 MB of overworld load garbage
-// was no longer collected behind the black screen.
+// GC.Collect(generation): 2 always collects, 1 (after a small map) above 64 MB in use, 0 (after a large map) above
+// 96 MB. Fixed sizes, not shares of the limit: with the 224 MB Vita limit the ~60 MB of overworld load garbage was no
+// longer collected behind the black screen. Both also need 64 MB of garbage since the last collection: a collection
+// costs the same however much it frees (~0.7 s on the Vita with the overworld kept), and map loads still collect
+// first when they would go above collectAbove.
 void CollectGeneration(int32_t generation) {
-    size_t threshold = generation >= 2 ? 0 : (generation == 1 ? 64u : 96u) << 20;
-    if (heapInUse() > threshold) Collect();
+    if (generation < 2) {
+        size_t floor = (generation == 1 ? 64u : 96u) << 20;
+        size_t garbage = 64u << 20;
+        size_t inUse = heapInUse();
+        if (inUse <= floor || inUse <= g_liveAfterGc + garbage) return;
+    }
+    Collect();
 }
 // GC.TryStartNoGCRegion(bytes): called before each map load; makes room up front so the load doesn't hit the heap
 // limit.
 bool BeginNoGC(int64_t bytes) {
-    if (heapInUse() + (size_t)bytes > g_heapLimit) Collect();
+    if (heapInUse() + (size_t)bytes > g_collectAbove) Collect();
     return true;
 }
 int64_t AllocatedBytes() { return (int64_t)GC_get_total_bytes(); }
+// Addresses are printed relative to rt::Init so they can be resolved against the ELF despite ASLR:
+// address = value + (nm ladxhd | grep _ZN2rt4InitEv).
+void LogException(const char* what, System::Exception* e) {
+    const uintptr_t base = reinterpret_cast<uintptr_t>(&Init);
+    for (int level = 0; e && level < 4; level++, e = e->inner) {
+        char msg[1024];
+        auto* text = e->get_Message();
+        int n = std::snprintf(msg, sizeof msg, "%s%s %s: %s | stack (relative to rt::Init):", level ? "  inner: " : what,
+                              level ? "" : " exception", e->GetType()->fullName->ToUtf8(), text ? text->ToUtf8() : "");
+        for (int32_t i = 0; i < e->traceDepth && n > 0 && n < (int)sizeof msg - 16; i++)
+            n += std::snprintf(msg + n, sizeof msg - n, " %+d",
+                               (int)(reinterpret_cast<intptr_t>(e->trace[i]) - (intptr_t)base));
+        rt_log(msg);
+    }
+}
 }  // namespace rt
 
 namespace System {
@@ -107,7 +145,23 @@ namespace System {
 [[noreturn]] void ThrowSwitch() { throw NewEx<SwitchExpressionException>(STR(u"Non-exhaustive switch expression.")); }
 [[noreturn]] void Math::ThrowArithmetic() { throw NewEx<InvalidOperationException>(STR(u"Function does not accept floating point Not-a-Number values.")); }
 
+namespace {
+struct TraceState {
+    void** out;
+    int32_t depth, max;
+};
+_Unwind_Reason_Code traceFrame(_Unwind_Context* ctx, void* arg) {
+    auto* s = static_cast<TraceState*>(arg);
+    if (s->depth >= s->max) return _URC_END_OF_STACK;
+    if (uintptr_t pc = _Unwind_GetIP(ctx)) s->out[s->depth++] = reinterpret_cast<void*>(pc);
+    return _URC_NO_REASON;
+}
+}  // namespace
+
 void TraceException(Exception* e) {
+    TraceState state{e->trace, 0, (int32_t)(sizeof e->trace / sizeof e->trace[0])};
+    _Unwind_Backtrace(traceFrame, &state);
+    e->traceDepth = state.depth;
     static int enabled = -1;
     if (enabled < 0) enabled = std::getenv("LADX_TRACE_EX") ? 1 : 0;
     if (!enabled) return;

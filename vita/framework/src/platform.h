@@ -39,8 +39,12 @@ const char* userRoot();     // writable folder for saves/settings
 bool diagnosticsEnabled();
 void log(const char* msg);
 void logf(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+// Writes buffered log lines now (before exiting or crashing on purpose).
+void logFlush();
 void startThread(void (*fn)(void*), void* arg, void** handle);
 void joinThread(void* handle);
 // Marks game-loop progress; the Vita build runs a watchdog on it.
 void heartbeat(const char* phase);
+// Resets the screen-dimming and auto-suspend timers.
+void keepAwake();
 }  // namespace fw::plat

@@ -72,9 +72,23 @@ REPLACE
             public string[,] DigMap;
         }
 
-        // Only maps this large are worth keeping parsed (in practice just the overworld, ~3 MB).
+        // Large maps (in practice just the overworld, ~3 MB) stay parsed; of the others the last few loaded do (dungeon
+        // rooms and side areas are visited back and forth, and parsing is about half of loading them).
         private const int MapCacheMinObjects = 4000;
+        private const int SmallMapCacheSize = 8;
         private static readonly Dictionary<string, CachedMap> _mapCache = new Dictionary<string, CachedMap>();
+        private static readonly List<string> _smallMapOrder = new List<string>();
+
+        private static void VitaTouchSmallMap(string fileName)
+        {
+            _smallMapOrder.Remove(fileName);
+            _smallMapOrder.Add(fileName);
+            if (_smallMapOrder.Count > SmallMapCacheSize)
+            {
+                _mapCache.Remove(_smallMapOrder[0]);
+                _smallMapOrder.RemoveAt(0);
+            }
+        }
 
         private static object[] CloneParameter(object[] parameter)
         {
@@ -132,6 +146,8 @@ REPLACE
         {
             if (_mapCache.TryGetValue(fileName, out var cachedMap))
             {
+                if (cachedMap.Objects.Length + cachedMap.ObjectsB.Length < MapCacheMinObjects)
+                    VitaTouchSmallMap(fileName);
                 LoadCachedMap(cachedMap, fileName, map);
                 return;
             }
@@ -153,19 +169,18 @@ REPLACE
                 map.DigMap = new string[map.MapWidth, map.MapHeight];
 
             // Copied before any object is created from the list (GetGameObject writes into the parameters).
-            if (map.Objects.ObjectList.Count + map.Objects.ObjectListB.Count >= MapCacheMinObjects)
+            _mapCache[fileName] = new CachedMap
             {
-                _mapCache[fileName] = new CachedMap
-                {
-                    HasOffset = fileVersion > 2,
-                    OffsetX = map.MapOffsetX,
-                    OffsetY = map.MapOffsetY,
-                    TilesetPath = map.TileMap.TilesetPath,
-                    Tiles = (int[,,])map.TileMap.ArrayTileMap.Clone(),
-                    Objects = CloneItems(map.Objects.ObjectList),
-                    ObjectsB = CloneItems(map.Objects.ObjectListB),
-                    DigMap = (string[,])map.DigMap.Clone()
-                };
-            }
+                HasOffset = fileVersion > 2,
+                OffsetX = map.MapOffsetX,
+                OffsetY = map.MapOffsetY,
+                TilesetPath = map.TileMap.TilesetPath,
+                Tiles = (int[,,])map.TileMap.ArrayTileMap.Clone(),
+                Objects = CloneItems(map.Objects.ObjectList),
+                ObjectsB = CloneItems(map.Objects.ObjectListB),
+                DigMap = (string[,])map.DigMap.Clone()
+            };
+            if (map.Objects.ObjectList.Count + map.Objects.ObjectListB.Count < MapCacheMinObjects)
+                VitaTouchSmallMap(fileName);
         }
 END

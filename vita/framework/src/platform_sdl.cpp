@@ -164,9 +164,12 @@ Pad gamepad(int index) {
     return p;
 }
 
+// Desktop test runs are silent unless LADX_SOUND=1; the mixer still runs so audio timing stays the same.
+static const bool audioMuted = !(std::getenv("LADX_SOUND") && std::getenv("LADX_SOUND")[0] == '1');
+
 static void audioCallback(void*, uint8_t* stream, int len) {
     if (mixFn) mixFn((int16_t*)stream, len / 4);
-    else SDL_memset(stream, 0, len);
+    if (!mixFn || audioMuted) SDL_memset(stream, 0, len);
 }
 
 bool audioInit(int rate, void (*mix)(int16_t*, int)) {
@@ -213,6 +216,7 @@ void logf(const char* fmt, ...) {
     std::vfprintf(stderr, fmt, ap);
     va_end(ap);
 }
+void logFlush() {}
 void startThread(void (*fn)(void*), void* arg, void** handle) {
     auto* t = new std::thread(fn, arg);
     *handle = t;
@@ -222,5 +226,6 @@ void joinThread(void* handle) {
     if (t->joinable()) t->join();
 }
 void heartbeat(const char*) {}
+void keepAwake() {}
 
 }  // namespace fw::plat

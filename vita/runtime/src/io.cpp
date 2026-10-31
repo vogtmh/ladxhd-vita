@@ -104,7 +104,8 @@ void makeDirs(const std::string& n) {
         }
     }
 }
-// Temp file, delete, rename: the same sequence the game used, so an interrupted save keeps the old file.
+// Temp file, then the old file becomes "<file>.bak" (SaveManager.LoadFile falls back to it), then rename: an
+// interrupted save keeps the old file or its backup.
 void runJob(const FileJob& job) {
     if (job.dirOnly) {
         makeDirs(job.path);
@@ -116,7 +117,9 @@ void runJob(const FileJob& job) {
     bool ok = f && std::fwrite(job.data.data(), 1, job.data.size(), f) == job.data.size();
     if (f && std::fclose(f) != 0) ok = false;
     if (ok) {
-        std::remove(job.path.c_str());
+        std::string bak = job.path + ".bak";
+        std::remove(bak.c_str());
+        if (std::rename(job.path.c_str(), bak.c_str()) != 0) std::remove(job.path.c_str());
         ok = std::rename(tmp.c_str(), job.path.c_str()) == 0;
     }
     if (!ok) {

@@ -28,7 +28,8 @@ static float g_backClearColor[4];
 size_t textureBytes = 0;
 int drawCalls = 0, targetSwitches = 0;
 GpuStats gpuStats;
-int debugMode = 0;
+// Desktop profiling: LADX_GFXMODE=1 skips the GL draws (game-side CPU only).
+int debugMode = std::getenv("LADX_GFXMODE") ? std::atoi(std::getenv("LADX_GFXMODE")) : 0;
 bool backBufferAsTarget = false;
 void setBackBufferAsTarget(bool on) { backBufferAsTarget = on; }
 

@@ -126,3 +126,41 @@ REPLACE
         private void ClearPools()
         {
 END
+
+A released map gets a fresh ObjectManager whose pools are only created by LoadObjects. Link's sprite shadow
+(used when dynamic shadows are off) removes itself from its previous map after every map change, so that removal
+hit the null pools and every door crashed with shadows off.
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+        public void RemoveObject(GameObject gameObject)
+        {
+REPLACE
+        public void RemoveObject(GameObject gameObject)
+        {
+            if (_gameObjectPool == null)
+            {
+                gameObject.Map = null;
+                return;
+            }
+END
+
+Loading a save while playing (menu, game over) replaced the current map without releasing it, so every save load
+kept the previous overworld alive (device: live data 132 -> 136 -> 149 -> 166 MB over three loads).
+
+FILE InGame/Things/GameManager.cs
+FIND
+            // Create a new empty map file to load objects into and put Link on it.
+            MapManager.CurrentMap = Map.Map.CreateEmptyMap();
+REPLACE
+            ((MapTransitionSystem)GameSystems[typeof(MapTransitionSystem)]).VitaReleaseKeptMap();
+            var vitaOldMap = MapManager.CurrentMap;
+            if (vitaOldMap?.Objects != null)
+            {
+                vitaOldMap.Objects.ReleaseObjects();
+                vitaOldMap.Objects = new ObjectManager(vitaOldMap);
+            }
+
+            // Create a new empty map file to load objects into and put Link on it.
+            MapManager.CurrentMap = Map.Map.CreateEmptyMap();
+END

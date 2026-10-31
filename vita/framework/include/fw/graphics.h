@@ -414,4 +414,9 @@ namespace fw {
 void setPerfOverlay(bool on);
 int getPerfOverlayMode();
 void setPerfOverlayMode(int value);
+// Stress test: forces hitch/perf log lines on and reports memory counters (see memoryStat in game.cpp).
+void setStressMode(bool on);
+int64_t memoryStat(int what);
+// Map transitions: frame-time misses during the next `frames` frames don't count against 60 fps.
+void holdPacing(int frames);
 }  // namespace fw

@@ -29,6 +29,7 @@ extern "C" void* CheckedMallocAtomic(size_t bytes) { checkAllocation(bytes); ret
 extern "C" void* CheckedMallocOffPage(size_t bytes) { checkAllocation(bytes); return GC_malloc_ignore_off_page(bytes); }
 extern "C" void* CheckedMallocAtomicOffPage(size_t bytes) { checkAllocation(bytes); return GC_malloc_atomic_ignore_off_page(bytes); }
 extern "C" void rt_log(const char* message) { std::puts(message); }
+extern "C" void rt_log_flush() {}
 extern "C" const char* rt_base_directory() { return "."; }
 extern "C" const char* rt_platform_folder(int) { return "."; }
 extern "C" const char* rt_game_version() { return "test"; }
@@ -47,8 +48,29 @@ struct Payload final : Object {
     void __init(int32_t value) { marker = value; }
 };
 
+__attribute__((noinline)) static void throwInner() { auto* d = New<Dictionary<int32_t, int32_t>>(); d->get_Item(42); }
+__attribute__((noinline)) static void throwOuter() {
+    try {
+        throwInner();
+    } catch (Exception* e) {
+        throw NewEx<Exception>(STR(u"outer"), e);
+    }
+}
+
+static void checkExceptionTrace() {
+    try {
+        throwOuter();
+        assert(false);
+    } catch (Exception* e) {
+        assert(e->traceDepth >= 3);
+        assert(e->inner && e->inner->traceDepth >= 4);
+        rt::LogException("Test", e);
+    }
+}
+
 int main() {
     GC_INIT();
+    checkExceptionTrace();
     GC_set_max_heap_size(16 * 1024 * 1024);
     limitAllocations = true;
     auto* dictionary = New<Dictionary<int32_t, int32_t>>();

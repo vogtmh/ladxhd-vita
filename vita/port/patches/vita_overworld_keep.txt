@@ -1,6 +1,7 @@
 Vita: leaving a house rebuilt the whole overworld (about 17,000 objects, 0.8-1.6 s on the Vita, plus a collection
-afterwards). The overworld now stays alive while the player is in a house, a cave or another small map that is
-not a dungeon. On return only the static terrain objects are kept (colliders, water, animated tiles, sprites,
+afterwards). The overworld now stays alive while the player is in a house, a cave, a dungeon or any other map that
+is not itself large; it is parked outside the MapManager so dungeon rooms and side areas can be loaded meanwhile.
+On return only the static terrain objects are kept (colliders, water, animated tiles, sprites,
 fences, ... about 16,000); every other object of the map file is created again exactly as a fresh load would
 (doors, spawners, NPCs, items, enemies), and so are cut bushes. Fence parts and stone spawners are kept too
 (stone spawners are reset to their loaded state). Objects spawned at runtime are removed. A loaded
@@ -17,6 +18,10 @@ REPLACE
         public int VitaEntry = -1;
         // Scratch mark for set membership tests during an overworld reset.
         public int VitaStamp;
+        // Load id of the ObjectManager whose initial objects include this one (ObjectManager.VitaIsInitial).
+        public int VitaInitialOf;
+        // Cached kind for the reset: 0 unknown, 1 static terrain, 2 stone spawner, 3 other.
+        public byte VitaKind;
 END
 
 FILE InGame/Map/Map.cs
@@ -31,6 +36,13 @@ REPLACE
         public void Reset()
         {
             VitaLoadCount++;
+            VitaResetFlags();
+        }
+
+        // Reset without counting a load: an overworld reset recreates the identifier objects that set these, in map order,
+        // so constructors see the same flags as during a fresh load.
+        public void VitaResetFlags()
+        {
             IsOverworld = false;
 END
 
@@ -86,6 +98,7 @@ REPLACE
             // Large maps remember which object came from which map entry, so they can be reset instead of rebuilt.
             VitaRestoreParameters();
             VitaInitialObjects = null;
+            _vitaLoadId = 0;
             VitaItemObjects = null;
             VitaChildren = null;
             _vitaCreating = false;
@@ -160,7 +173,10 @@ REPLACE
 
             if (VitaItemObjects != null)
             {
+                _vitaLoadId = ++_vitaNextLoadId;
                 VitaInitialObjects = new HashSet<GameObject>(_poolSpawnedObjects);
+                foreach (var gameObject in _poolSpawnedObjects)
+                    gameObject.VitaInitialOf = _vitaLoadId;
                 VitaDropParameters();
             }
             _vitaCreating = false;
@@ -198,14 +214,41 @@ REPLACE
         public List<GameObject> VitaItemObjects;
         // Entry i -> objects its object spawned while being created or initialised (directly or indirectly).
         public Dictionary<int, List<GameObject>> VitaChildren;
-        // Every object present right after loading.
+        // Every object present right after loading (for iteration; membership tests use VitaIsInitial).
         public HashSet<GameObject> VitaInitialObjects;
+        private int _vitaLoadId;
+        private static int _vitaNextLoadId;
         // Only true while map entries are being created; spawns are then attributed to their creator's entry.
         private bool _vitaCreating;
         private static int _vitaStamp;
 
+        private bool VitaIsInitial(GameObject gameObject) => _vitaLoadId != 0 && gameObject.VitaInitialOf == _vitaLoadId;
+
+        private void VitaAddInitial(GameObject gameObject)
+        {
+            VitaInitialObjects.Add(gameObject);
+            gameObject.VitaInitialOf = _vitaLoadId;
+        }
+
+        private void VitaRemoveInitial(GameObject gameObject)
+        {
+            VitaInitialObjects.Remove(gameObject);
+            if (gameObject.VitaInitialOf == _vitaLoadId)
+                gameObject.VitaInitialOf = 0;
+        }
+
+        private static bool VitaIsStatic(GameObject gameObject) => VitaKindOf(gameObject) == 1;
+
+        private static byte VitaKindOf(GameObject gameObject)
+        {
+            if (gameObject.VitaKind == 0)
+                gameObject.VitaKind = VitaIsStaticType(gameObject) ? (byte)1 :
+                    gameObject is ProjectZ.InGame.GameObjects.Things.ObjStoneSpawner ? (byte)2 : (byte)3;
+            return gameObject.VitaKind;
+        }
+
         // Terrain whose constructors read no game state and whose objects never change while alive.
-        private static bool VitaIsStatic(GameObject gameObject) =>
+        private static bool VitaIsStaticType(GameObject gameObject) =>
             gameObject is ProjectZ.InGame.GameObjects.Things.ObjCollider ||
             gameObject is ProjectZ.InGame.GameObjects.Things.ObjColliderOneWay ||
             gameObject is ProjectZ.InGame.GameObjects.Things.ObjAnimatedTile ||
@@ -252,12 +295,27 @@ REPLACE
         // UpdateDeleteObjects for thousands of objects: its List.Remove calls on the 17,000-object lists would dominate.
         private void VitaRemoveObjects(HashSet<GameObject> remove)
         {
+            var removed = ++_vitaStamp;
+            foreach (var gameObject in remove)
+                gameObject.VitaStamp = removed;
             lock (_alwaysAnimateLock)
+            {
                 foreach (var gameObject in remove)
                     _alwaysAnimateSet.Remove(gameObject);
-            VitaFilter(AlwaysAnimateObjectsMain, remove);
-            VitaFilter(_freezePersistObjects, remove);
-            VitaFilter(_poolSpawnedObjects, remove);
+                // Objects that register and then die in their constructor (the egg owl) never reach the map lists, and
+                // objects that left the map (Link's shadow, followers) register again when they come back.
+                for (var i = AlwaysAnimateObjectsMain.Count - 1; i >= 0; i--)
+                {
+                    if (AlwaysAnimateObjectsMain[i] == null || AlwaysAnimateObjectsMain[i].IsDead || AlwaysAnimateObjectsMain[i].Map != Owner)
+                    {
+                        _alwaysAnimateSet.Remove(AlwaysAnimateObjectsMain[i]);
+                        AlwaysAnimateObjectsMain.RemoveAt(i);
+                    }
+                }
+            }
+            VitaFilter(AlwaysAnimateObjectsMain, removed);
+            VitaFilter(_freezePersistObjects, removed);
+            VitaFilter(_poolSpawnedObjects, removed);
 
             foreach (var gameObject in remove)
             {
@@ -277,12 +335,15 @@ REPLACE
                     _keyChangeListeners.Add((gameObject.Components[KeyChangeListenerComponent.Index] as KeyChangeListenerComponent).KeyChangeFunction);
         }
 
-        private static void VitaFilter(List<GameObject> list, HashSet<GameObject> remove)
+        private static void VitaFilter(List<GameObject> list, int removed)
         {
             var write = 0;
             for (var read = 0; read < list.Count; read++)
-                if (!remove.Contains(list[read]))
-                    list[write++] = list[read];
+            {
+                var gameObject = list[read];
+                if (gameObject == null || gameObject.VitaStamp != removed)
+                    list[write++] = gameObject;
+            }
             list.RemoveRange(write, list.Count - write);
         }
 
@@ -306,7 +367,7 @@ REPLACE
         {
             if (VitaChildren.TryGetValue(index, out var children))
                 foreach (var child in children)
-                    if (!VitaInitialObjects.Contains(child) || !VitaIsStatic(child) || VitaGone(child))
+                    if (!VitaIsInitial(child) || !VitaIsStatic(child) || VitaGone(child))
                         return false;
             return true;
         }
@@ -315,14 +376,16 @@ REPLACE
         // parts are still there.
         private bool VitaPlacedPartsIntact(int index, GameObject gameObject)
         {
-            return gameObject.IsDead && !VitaInitialObjects.Contains(gameObject) && VitaIsStatic(gameObject) && VitaChildrenIntact(index);
+            return gameObject.IsDead && !VitaIsInitial(gameObject) && VitaIsStatic(gameObject) && VitaChildrenIntact(index);
         }
 
         // A stone spawner's only state is visibility (its stones hide over dug holes); reset it like a fresh load.
         private bool VitaResetStoneSpawner(int index, GameObject gameObject)
         {
-            var spawner = gameObject as ProjectZ.InGame.GameObjects.Things.ObjStoneSpawner;
-            if (spawner == null || !VitaInitialObjects.Contains(spawner) || VitaGone(spawner) || !VitaChildrenIntact(index))
+            if (VitaKindOf(gameObject) != 2)
+                return false;
+            var spawner = (ProjectZ.InGame.GameObjects.Things.ObjStoneSpawner)gameObject;
+            if (!VitaIsInitial(spawner) || VitaGone(spawner) || !VitaChildrenIntact(index))
                 return false;
             spawner.IsActive = true;
             spawner.Hidden = false;
@@ -331,6 +394,7 @@ REPLACE
 
         public void VitaResetForReuse()
         {
+            var vitaClock = System.Diagnostics.Stopwatch.StartNew();
             SpawnObjects.Clear();
             DeleteObjects.Clear();
 
@@ -341,7 +405,7 @@ REPLACE
                 var gameObject = VitaItemObjects[i];
                 if (gameObject != null && (VitaPlacedPartsIntact(i, gameObject) || VitaResetStoneSpawner(i, gameObject)))
                     continue;
-                if (gameObject == null || !VitaInitialObjects.Contains(gameObject) || !VitaIsStatic(gameObject) || VitaGone(gameObject))
+                if (gameObject == null || !VitaIsInitial(gameObject) || !VitaIsStatic(gameObject) || VitaGone(gameObject))
                     recreateSet.Add(i);
             }
             foreach (var gameObject in VitaInitialObjects)
@@ -357,7 +421,7 @@ REPLACE
             foreach (var gameObject in _poolSpawnedObjects)
             {
                 gameObject.VitaStamp = inPool;
-                if (!VitaInitialObjects.Contains(gameObject) || gameObject.IsDead)
+                if (!VitaIsInitial(gameObject) || gameObject.IsDead)
                     remove.Add(gameObject);
             }
             foreach (var i in recreate)
@@ -371,9 +435,13 @@ REPLACE
                             remove.Add(child);
             }
             remove.Remove(MapManager.ObjLink);
+            var tPlan = vitaClock.ElapsedTicks;
             VitaRemoveObjects(remove);
+            var tRemove = vitaClock.ElapsedTicks;
 
-            // Create them again in the same steps as LoadObjects.
+            // Create them again in the same steps as LoadObjects, from the map state a fresh load starts with.
+            _keyChanged = false;
+            Owner.VitaResetFlags();
             _vitaCreating = true;
             var firstNew = _poolSpawnedObjects.Count;
             foreach (var i in recreate)
@@ -383,11 +451,11 @@ REPLACE
                 if (entry == null)
                     continue;
                 if (VitaItemObjects[i] != null)
-                    VitaInitialObjects.Remove(VitaItemObjects[i]);
+                    VitaRemoveInitial(VitaItemObjects[i]);
                 if (VitaChildren.TryGetValue(i, out var oldChildren))
                 {
                     foreach (var child in oldChildren)
-                        VitaInitialObjects.Remove(child);
+                        VitaRemoveInitial(child);
                     VitaChildren.Remove(i);
                 }
                 var spawnedBefore = SpawnObjects.Count;
@@ -400,6 +468,7 @@ REPLACE
             }
             AddSpawnedObjects(true);
             UpdateKeyListeners();
+            var tCreate = vitaClock.ElapsedTicks;
             for (var i = firstNew; i < _poolSpawnedObjects.Count; i++)
             {
                 var spawnedBefore = SpawnObjects.Count;
@@ -408,16 +477,111 @@ REPLACE
             }
             UpdateKeyListeners();
             AddSpawnedObjects();
+            var tInit = vitaClock.ElapsedTicks;
             for (var i = firstNew; i < _poolSpawnedObjects.Count; i++)
-                VitaInitialObjects.Add(_poolSpawnedObjects[i]);
+                VitaAddInitial(_poolSpawnedObjects[i]);
             _vitaCreating = false;
 
             _resetPending = false;
             _holeResetPending = false;
             Owner.ResetHoleMap();
             TriggerKeyChange();
-            System.Console.WriteLine("map reuse: removed " + remove.Count + ", recreated " + recreate.Count + " of " + VitaItemObjects.Count + " map entries");
+            var tEnd = vitaClock.ElapsedTicks;
+            var msPerTick = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            System.Console.WriteLine("map reuse: timing plan " + (tPlan * msPerTick).ToString("0.0") + " remove " + ((tRemove - tPlan) * msPerTick).ToString("0.0") +
+                " create " + ((tCreate - tRemove) * msPerTick).ToString("0.0") + " init " + ((tInit - tCreate) * msPerTick).ToString("0.0") +
+                " rest " + ((tEnd - tInit) * msPerTick).ToString("0.0") + " ms");
+            var poolEntries = _gameObjectPool.NoneTiledObjects.Count;
+            foreach (var tile in _gameObjectPool.ComponentTiles)
+                poolEntries += tile.GameObjects.Count;
+            var drawEntries = _drawPool.NoneTiledObjects.Count + _drawPoolB.NoneTiledObjects.Count;
+            foreach (var tile in _drawPool.ComponentTiles)
+                drawEntries += tile.DrawComponents.Count;
+            foreach (var tile in _drawPoolB.ComponentTiles)
+                drawEntries += tile.DrawComponents.Count;
+            System.Console.WriteLine("map reuse: removed " + remove.Count + ", recreated " + recreate.Count + " of " + VitaItemObjects.Count +
+                " map entries | objects " + _poolSpawnedObjects.Count + ", pool entries " + poolEntries + ", draw entries " + drawEntries +
+                ", always animate " + AlwaysAnimateObjectsMain.Count + ", key listeners " + _keyChangeListeners.Count);
         }
+END
+
+Objects spawned by key listeners while the map entries are created (the bridge's seven monkey workers once the
+bananas were given) belonged to no entry, so they survived every reset while the bridge spawned seven new ones.
+Each listener's spawns are now attributed to its object's entry, as for constructors and Init.
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+        private void UpdateKeyListeners()
+        {
+REPLACE
+        private void UpdateKeyListeners()
+        {
+            if (_vitaCreating)
+            {
+                VitaUpdateKeyListeners();
+                return;
+            }
+END
+
+FILE InGame/Map/ObjectManager.cs
+FIND
+        private void UpdateDeleteObjects()
+        {
+REPLACE
+        // UpdateKeyListeners in the same order (_keyChangeListeners follows the object order), noting spawns.
+        private void VitaUpdateKeyListeners()
+        {
+            var max = 5;
+            while (_keyChanged && max > 0)
+            {
+                max--;
+                _keyChanged = false;
+                var count = _poolSpawnedObjects.Count;
+                for (var i = 0; i < count && i < _poolSpawnedObjects.Count; i++)
+                {
+                    var gameObject = _poolSpawnedObjects[i];
+                    if ((gameObject.ComponentsMask & KeyChangeListenerComponent.Mask) != KeyChangeListenerComponent.Mask)
+                        continue;
+                    var spawnedBefore = SpawnObjects.Count;
+                    var listener = (gameObject.Components[KeyChangeListenerComponent.Index] as KeyChangeListenerComponent).KeyChangeFunction;
+                    // Only listeners AddObjectToMap registered (a component added later is never called).
+                    if (!_keyChangeListeners.Contains(listener))
+                        continue;
+                    listener();
+                    VitaNoteChildren(gameObject, spawnedBefore);
+                }
+            }
+        }
+
+        public static readonly bool VitaDumpEnabled = System.Environment.GetEnvironmentVariable("LADX_DUMP_OVERWORLD") == "1";
+        private static int _vitaDumpIndex;
+
+        // Desktop check that a reset overworld equals a freshly loaded one: lists every non-terrain object.
+        public void VitaDump(string how)
+        {
+            var index = ++_vitaDumpIndex;
+            var statics = new Dictionary<string, int>();
+            foreach (var gameObject in _poolSpawnedObjects)
+            {
+                var type = gameObject.GetType().Name;
+                if (VitaIsStatic(gameObject))
+                {
+                    statics.TryGetValue(type, out var n);
+                    statics[type] = n + 1;
+                    continue;
+                }
+                var position = gameObject.EntityPosition == null ? "-" :
+                    (int)gameObject.EntityPosition.X + "," + (int)gameObject.EntityPosition.Y + "," + (int)gameObject.EntityPosition.Z;
+                var draw = gameObject.Components[DrawComponent.Index] as DrawComponent;
+                System.Console.WriteLine("objdump " + index + " " + how + " " + type + " " + position + " active " + gameObject.IsActive +
+                    " drawn " + (draw != null && draw.IsActive) + " dead " + gameObject.IsDead);
+            }
+            foreach (var pair in statics)
+                System.Console.WriteLine("objdump " + index + " " + how + " static " + pair.Key + " " + pair.Value);
+        }
+
+        private void UpdateDeleteObjects()
+        {
 END
 
 FILE InGame/GameSystems/MapTransitionSystem.cs
@@ -437,6 +601,11 @@ REPLACE
                     _deferredMapFile = null;
                     if (VitaCanReuseKeptMap(mapFile))
                     {
+                        if (_gameMapManager.NextMap != _vitaKeptMap)
+                        {
+                            _vitaSpareMap = _gameMapManager.NextMap;
+                            _gameMapManager.NextMap = _vitaKeptMap;
+                        }
                         // The reset allocates far less than a load (recreated doors, spawners, NPCs, ...).
                         GC.TryStartNoGCRegion(24 * 1024 * 1024);
                         _vitaReuse = true;
@@ -446,7 +615,10 @@ REPLACE
                     }
                     else
                     {
-                        VitaDropKeptMap();
+                        // Loading another map while the kept one is parked (dungeon rooms) keeps it.
+                        if (_vitaKeptMap != null && (_vitaKeptMap.MapName == mapFile || _vitaKeptMap.VitaLoadCount != _vitaKeptLoadCount ||
+                            _vitaKeptSaveCount != SaveManager.VitaLoadedSaves))
+                            VitaDropKeptMap();
                         // Makes room for the load; collections only run at these transition points.
                         GC.TryStartNoGCRegion(48 * 1024 * 1024);
                         ThreadLoading(mapFile);
@@ -470,9 +642,16 @@ REPLACE
                         keepPrevious = VitaShouldKeep(previousMap, Game1.GameManager.MapManager.CurrentMap);
                         if (keepPrevious)
                         {
+                            if (_vitaKeptMap != null && _vitaKeptMap != previousMap)
+                                VitaDropKeptMap();
                             _vitaKeptMap = previousMap;
+                            System.Console.WriteLine("map keep: keeping " + previousMap.MapName + " while on " + Game1.GameManager.MapManager.CurrentMap.MapName);
                             _vitaKeptLoadCount = previousMap.VitaLoadCount;
                             _vitaKeptSaveCount = SaveManager.VitaLoadedSaves;
+                            // Parked outside the MapManager, so loading further maps (dungeon rooms, side areas) does
+                            // not overwrite it.
+                            Game1.GameManager.MapManager.NextMap = _vitaSpareMap ?? new Map.Map();
+                            _vitaSpareMap = null;
                         }
                         else
                         {
@@ -490,6 +669,8 @@ REPLACE
                     // or coming back only collects when the next load needs room (TryStartNoGCRegion).
                     if (!keepPrevious && !_vitaJustReused)
                         GC.Collect(isLargeMap ? 0 : 1);
+                    if (ObjectManager.VitaDumpEnabled && Game1.GameManager.MapManager.CurrentMap.IsOverworld)
+                        Game1.GameManager.MapManager.CurrentMap.Objects.VitaDump(_vitaJustReused ? "reuse" : "fresh");
                     _vitaJustReused = false;
 END
 
@@ -502,15 +683,20 @@ REPLACE
                 _vitaReuse = false;
                 _vitaJustReused = true;
                 _vitaKeptMap = null;
-                // As in LoadObjects above: objects created during the reset configure NextMap.
+                // As during a load: objects created during the reset configure NextMap, and with threaded loading
+                // (the default) the previous map is still CurrentMap while they are created.
                 var restoreNextMap = mm.NextMap;
+                var restoreCurrentMap = mm.CurrentMap;
                 mm.NextMap = mm.CurrentMap;
+                if (GameSettings.ThreadMapLoad && restoreNextMap != null)
+                    mm.CurrentMap = restoreNextMap;
                 try
                 {
-                    mm.CurrentMap.Objects.VitaResetForReuse();
+                    restoreCurrentMap.Objects.VitaResetForReuse();
                 }
                 finally
                 {
+                    mm.CurrentMap = restoreCurrentMap;
                     mm.NextMap = restoreNextMap;
                 }
             }
@@ -524,27 +710,40 @@ FIND
 REPLACE
         private bool _wobbleTransitionIn;
 
-        // The overworld kept alive while the player is in a small map (house, cave, passage).
+        // The overworld kept alive while the player is in a smaller map (house, cave, dungeon).
         private Map.Map _vitaKeptMap;
         private int _vitaKeptLoadCount;
         private int _vitaKeptSaveCount;
         private bool _vitaReuse;
         private bool _vitaJustReused;
+        // Takes the kept map's place as MapManager.NextMap.
+        private Map.Map _vitaSpareMap;
+
+        // Desktop A/B: LADX_KEEP_DUNGEONS=0 reloads the overworld after dungeons as before.
+        private static readonly bool VitaKeepInDungeons = System.Environment.GetEnvironmentVariable("LADX_KEEP_DUNGEONS") != "0";
 
         private static bool VitaShouldKeep(Map.Map previousMap, Map.Map newMap)
         {
-            if (previousMap.Objects?.VitaInitialObjects == null || newMap.IsDungeon || newMap.IsCastle || newMap.IsEgg)
+            if (previousMap.Objects?.VitaInitialObjects == null || newMap.IsEgg || newMap.IsFinalMap)
                 return false;
-            return newMap.Objects.ObjectList.Count + newMap.Objects.ObjectListB.Count < 2000;
+            if (!VitaKeepInDungeons && (newMap.IsDungeon || newMap.IsCastle))
+                return false;
+            return newMap.Objects.ObjectList.Count + newMap.Objects.ObjectListB.Count < ObjectManager.VitaKeepMinObjects;
         }
 
         private bool VitaCanReuseKeptMap(string mapFile)
         {
             var kept = _vitaKeptMap;
-            if (kept == null || _gameMapManager.NextMap != kept || kept.VitaLoadCount != _vitaKeptLoadCount ||
+            if (kept == null || kept.VitaLoadCount != _vitaKeptLoadCount ||
                 _vitaKeptSaveCount != SaveManager.VitaLoadedSaves || kept.MapName != mapFile)
                 return false;
             return kept.Objects.VitaCanReuse();
+        }
+
+        // A loaded save replaces the world; the kept overworld would only hold memory.
+        public void VitaReleaseKeptMap()
+        {
+            VitaDropKeptMap();
         }
 
         private void VitaDropKeptMap()

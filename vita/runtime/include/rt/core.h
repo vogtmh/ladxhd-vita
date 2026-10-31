@@ -724,6 +724,9 @@ void TraceException(struct Exception* e);
 struct Exception : Object {
     String* message = nullptr;
     Exception* inner = nullptr;
+    // Return addresses captured when the exception was created (logged if it is never caught).
+    void* trace[20] = {};
+    int32_t traceDepth = 0;
     void __init() { TraceException(this); }
     void __init(String* m) { message = m; TraceException(this); }
     void __init(String* m, Exception* in) { message = m; inner = in; TraceException(this); }
@@ -859,9 +862,11 @@ bool MountPack(const char* packFile, const char* prefix);
 void Collect();
 void CollectGeneration(int32_t generation);
 bool BeginNoGC(int64_t bytes);
-void ConfigureCollector(size_t heapLimit, bool enforceLimit);
+void ConfigureCollector(size_t heapLimit, bool enforceLimit, size_t collectAbove);
 int64_t AllocatedBytes();
 // Saves are written by a background thread (temp file + rename); other disk accesses wait for it.
 void QueueFileWrite(System::String* path, System::String* text);
 void WaitForFileWrites();
+// Logs type, message, creation stack and inner exceptions.
+void LogException(const char* what, System::Exception* e);
 }

@@ -1,0 +1,48 @@
+Vita: button labels match the Vita. The PlayStation labels are the default (the game's default was XBox) and name
+the Vita's buttons: Cross/Circle/Square/Triangle, L/R, Select/Start. Existing settings switch to them once; a
+controller type chosen afterwards in the settings is kept. The XBox labels also say Select instead of Back.
+
+FILE InGame/Controls/ControlHandler.cs
+FIND
+                { "A", "B", "X", "Y", "LB", "RB", "LT", "RT",   "Back",   "Start" },  // XBox
+REPLACE
+                { "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "Select",   "Start" },  // XBox
+END
+
+FILE InGame/Controls/ControlHandler.cs
+FIND
+                { "Χ", "Ο", "Γ", "Δ", "L1", "R1", "L2", "R2",  "Share", "Options" }   // Playstation
+REPLACE
+                { "Χ", "Ο", "Γ", "Δ",  "L",  "R", "L2", "R2", "Select",   "Start" }   // Playstation
+END
+
+FILE InGame/Things/GameSettings.cs
+FIND
+        public static string  Controller       =  "XBox";
+REPLACE
+        public static string  Controller       =  "Playstation";
+END
+
+FILE InGame/Things/GameSettings.cs
+FIND
+            Controller       =  "XBox";
+REPLACE
+            Controller       =  "Playstation";
+END
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+            GameSettings.Controller = saveManager.GetString("Controller", GameSettings.Controller);
+REPLACE
+            GameSettings.Controller = saveManager.GetString("Controller", GameSettings.Controller);
+            if (!saveManager.GetBool("VitaPlaystationLabels", false))
+                GameSettings.Controller = "Playstation";
+END
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+            saveManager.SetString("Controller", GameSettings.Controller);
+REPLACE
+            saveManager.SetString("Controller", GameSettings.Controller);
+            saveManager.SetBool("VitaPlaystationLabels", true);
+END

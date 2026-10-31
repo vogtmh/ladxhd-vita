@@ -154,7 +154,8 @@ struct DisplayData {
 };
 // Frame pacing: every frame is shown for the same number of refreshes and the game advances by exactly that time.
 // Showing ~50 fps frames for one or two refreshes at random made scrolling shake by a few pixels.
-int g_swapInterval = 2;
+// Starts at 60: the intro fits it, and starting at 30 showed its first seconds at 30 fps until the first try.
+int g_swapInterval = 1;
 SceGxmContext* g_ctx = nullptr;
 SceGxmShaderPatcher* g_patcher = nullptr;
 SceGxmRenderTarget* g_displayRT = nullptr;
@@ -922,11 +923,22 @@ void beBeginFrame() {
 // 60 fps while frames really make every refresh, otherwise an even 30 fps. At 30 fps the waits come from the
 // pacing itself, so whether 60 fits can only be found out by trying it; failed tries back off up to 30 s.
 int g_lastVblanks = 1;  // refreshes between the last two frames
+int g_pacingHold = 120;  // frames left in which misses are ignored (map transitions; startup decodes and targets)
 static void updateSwapInterval(double workMs) {
     static int window = 0, missed = 0, goodWindows = 0, countdown = 90, retryFrames = 90;
     int before = g_swapInterval;
+    if (g_pacingHold > 0) {
+        // Loads, collections and first draws of a new map say nothing about whether the map itself fits 60 fps;
+        // earlier failed tries were for another scene, so the next try comes soon.
+        g_pacingHold--;
+        window = missed = 0;
+        retryFrames = 90;
+        countdown = std::min(countdown, 30);
+        return;
+    }
     if (g_swapInterval == 1) {
-        missed += g_lastVblanks > 1;
+        // Only steady 2-3 refresh frames mean overload; single long frames are hitches.
+        missed += g_lastVblanks == 2 || g_lastVblanks == 3;
         if (++window == 60) {
             if (missed >= 4) {
                 g_swapInterval = 2;
@@ -1200,3 +1212,7 @@ Program* beEffectProgram(const EffectDef* def) {
 bool beReadBackBuffer(int, int, uint8_t*) { return false; }
 
 }  // namespace fw::gfx
+
+namespace fw {
+void holdPacing(int frames) { gfx::g_pacingHold = std::max(gfx::g_pacingHold, frames); }
+}  // namespace fw

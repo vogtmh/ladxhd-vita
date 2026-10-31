@@ -1,0 +1,109 @@
+Vita: while the inventory or the options menu pauses the game the world cannot change, but it was still drawn
+from scratch every frame (shadow, blur and light passes and hundreds of sprites). With the menu on top that no
+longer fit into a 60 fps frame. The first paused frame now draws the world into the main render target, which the
+direct render path doesn't use otherwise, and the following frames only copy it to the screen.
+
+FILE InGame/Overlay/OverlayManager.cs
+FIND
+        public bool UpdateCameraAndAnimation()
+REPLACE
+        // The options menu and the inventory stop the game world (Game1.UpdateGame is false while they are open).
+        public bool VitaWorldPaused => _currentMenuState == MenuState.Menu || _currentMenuState == MenuState.Inventory;
+
+        public bool UpdateCameraAndAnimation()
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+        public void DrawGame(SpriteBatch spriteBatch)
+        {
+            if (!Game1.ScreenDirect)
+            {
+                DrawGameRT(spriteBatch);
+                return;
+            }
+            var device = Game1.Graphics.GraphicsDevice;
+REPLACE
+        // The world image while a menu pauses the game, and the target it is being drawn into this frame.
+        private RenderTarget2D _vitaFrozenWorld;
+        private RenderTarget2D _vitaWorldCapture;
+        private Vector2 _vitaFrozenCamera;
+        private float _vitaFrozenScale;
+        private int _vitaFrozenFrames;
+
+        public void DrawGame(SpriteBatch spriteBatch)
+        {
+            if (!Game1.ScreenDirect)
+            {
+                _vitaFrozenWorld = null;
+                DrawGameRT(spriteBatch);
+                return;
+            }
+            var device = Game1.Graphics.GraphicsDevice;
+
+            // Settings changed in the menu (game scale, shadows, lights) show up through the camera check or the
+            // refresh once a second.
+            var snapshot = InGameOverlay.VitaWorldPaused && !MapManager.ObjLink.IsTransitioning ? Game1.MainRenderTarget : null;
+            if (snapshot != null && snapshot == _vitaFrozenWorld && ++_vitaFrozenFrames < 60 &&
+                _vitaFrozenCamera == MapManager.Camera.Location && _vitaFrozenScale == MapManager.Camera.Scale)
+            {
+                VitaDrawFrozenWorld(spriteBatch, snapshot);
+                return;
+            }
+            _vitaFrozenWorld = null;
+            _vitaWorldCapture = snapshot;
+            _vitaFrozenCamera = MapManager.Camera.Location;
+            _vitaFrozenScale = MapManager.Camera.Scale;
+            _vitaFrozenFrames = 0;
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+            device.SetRenderTarget(null);
+            device.Clear(Color.Black);
+
+            // draw the map
+            MapManager.Draw(spriteBatch);
+REPLACE
+            device.SetRenderTarget(_vitaWorldCapture);
+            device.Clear(Color.Black);
+
+            // draw the map
+            MapManager.Draw(spriteBatch);
+END
+
+FILE InGame/Things/GameManager.cs
+FIND
+            // debug stuff
+            spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp);
+            MapManager.Camera.Draw(spriteBatch);
+            spriteBatch.End();
+        }
+
+        private void DrawGameRT(SpriteBatch spriteBatch)
+        {
+REPLACE
+            // debug stuff
+            spriteBatch.Begin(SpriteSortMode.Deferred, null, SamplerState.PointClamp);
+            MapManager.Camera.Draw(spriteBatch);
+            spriteBatch.End();
+
+            if (_vitaWorldCapture != null)
+            {
+                _vitaFrozenWorld = _vitaWorldCapture;
+                _vitaWorldCapture = null;
+                VitaDrawFrozenWorld(spriteBatch, _vitaFrozenWorld);
+            }
+        }
+
+        private void VitaDrawFrozenWorld(SpriteBatch spriteBatch, RenderTarget2D world)
+        {
+            Game1.Graphics.GraphicsDevice.SetRenderTarget(null);
+            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp);
+            spriteBatch.Draw(world, new Rectangle(0, 0, CurrentRenderWidth, CurrentRenderHeight), Color.White);
+            spriteBatch.End();
+        }
+
+        private void DrawGameRT(SpriteBatch spriteBatch)
+        {
+END

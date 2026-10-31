@@ -1,0 +1,25 @@
+Vita frame pacing: map transitions (load, collection, first draws of the new map) used to count as missed frames,
+so most door trips dropped the game to 30 fps and every drop doubled the wait before the next 60 fps try (up to
+30 s). Houses and caves then stayed at 30 fps although a frame needs only ~8 ms there. The pacing now ignores
+frames while a transition runs and for a short time after it.
+
+FILE Game1.cs
+FIND
+        public static bool InProgress;
+REPLACE
+        public static bool InProgress;
+
+        public static void VitaPacingHold() { }
+END
+
+FILE InGame/GameSystems/MapTransitionSystem.cs
+FIND
+            if (CurrentState != TransitionState.Idle)
+                Game1.GameManager.InGameOverlay.DisableOverlayToggle = true;
+REPLACE
+            if (CurrentState != TransitionState.Idle)
+                Game1.GameManager.InGameOverlay.DisableOverlayToggle = true;
+
+            if (CurrentState != TransitionState.Idle && CurrentState != TransitionState.ColorMode)
+                Game1.VitaPacingHold();
+END

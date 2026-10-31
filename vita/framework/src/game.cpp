@@ -75,10 +75,33 @@ namespace audio {
 extern std::atomic<int> underruns;
 void startOutput();
 }  // namespace audio
+static bool stressMode = false;
 namespace plat {
-bool diagnosticsEnabled() { return overlay::active() || perfRequested; }
+bool diagnosticsEnabled() { return overlay::active() || perfRequested || stressMode; }
 }
 long frameCounter = 0;
+void setStressMode(bool on) { stressMode = on; }
+int64_t memoryStat(int what) {
+    switch (what) {
+    case 0: return (int64_t)GC_get_heap_size();
+    case 1: return (int64_t)GC_get_free_bytes();
+    case 2: return (int64_t)(GC_get_heap_size() - GC_get_free_bytes());
+    case 3: return (int64_t)GC_get_gc_no();
+    case 4: return (int64_t)GC_get_full_gc_total_time();
+    case 5: return (int64_t)GC_get_total_bytes();
+    case 6: return (int64_t)plat::memoryInfo().systemFree;
+    case 7: return (int64_t)plat::memoryInfo().graphicsFree;
+    case 8: return (int64_t)gfx::textureBytes;
+    case 9: return (int64_t)plat::memoryInfo().used;
+    case 10: return (int64_t)frameCounter;
+    case 11: {
+        // Scripted runs: LADX_STRESS=<frame> starts the stress test at that frame.
+        static const long autoStart = [] { const char* s = std::getenv("LADX_STRESS"); return s ? std::atol(s) : 0L; }();
+        return autoStart;
+    }
+    default: return 0;
+    }
+}
 static void initAutomation() {
     if (const char* s = std::getenv("LADX_SHOTS"))
         for (const char* p = s; *p;) {
@@ -211,6 +234,7 @@ extern "C" const char* rt_base_directory() {
     return s.c_str();
 }
 extern "C" void rt_log(const char* s) { fw::plat::log(s); }
+extern "C" void rt_log_flush() { fw::plat::logFlush(); }
 extern "C" void rt_thread_start(void (*fn)(void*), void* arg, void** handle) { fw::plat::startThread(fn, arg, handle); }
 extern "C" void rt_thread_join(void* handle) { fw::plat::joinThread(handle); }
 extern "C" long fw_frame_counter() { return fw::frameCounter; }
@@ -348,6 +372,7 @@ void Game::Run() {
         fw::overlay::draw(dw, dh);
         fw::maybeShot(dw, dh);
         fw::frameCounter++;
+        if (fw::stressMode && fw::frameCounter % 60 == 0) fw::plat::keepAwake();
         if (fw::memStat && fw::frameCounter % 100 == 0) {
             static size_t lastTotal = 0;
             size_t total = GC_get_total_bytes();

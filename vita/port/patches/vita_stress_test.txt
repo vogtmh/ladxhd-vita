@@ -1,0 +1,1342 @@
+Vita stress test (Cheats > Stress Test, in game only). Plays through the game automatically to find memory
+build-up and crashes: every dungeon in a row (all rooms, every side area, the instrument sequence and the warp
+back to the overworld), every overworld door, the whole overworld, menus and repeated save loads. Writes
+"stress:" lines to the log (each step, each map load, every collection, slow frames, memory every 10 s and a
+summary). Saving is blocked while it runs; afterwards settings and achievements are restored and the save is
+reloaded. Each dungeon, every 20 overworld doors, the overworld tour and each save load run with another settings
+profile (sprite shadows, classic camera, classic camera per map type, classic sprites/music without lighting,
+colour correction/pixel grid), on top of the player's settings; all but "your settings" also step through the game
+scales 1x to 4x. The summary lists the frame rate per profile and per game scale. Pressing the button again (or
+opening the menu and pressing it) stops the test.
+
+FILE InGame/GameSystems/CheatSystem.cs
+FIND
+using System;
+using ProjectZ.InGame.Graphics;
+using ProjectZ.InGame.Map;
+using ProjectZ.InGame.Things;
+
+namespace ProjectZ.InGame.GameSystems
+{
+REPLACE
+using System;
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using ProjectZ.InGame.Controls;
+using ProjectZ.InGame.GameObjects.Things;
+using ProjectZ.InGame.Graphics;
+using ProjectZ.InGame.Map;
+using ProjectZ.InGame.SaveLoad;
+using ProjectZ.InGame.Things;
+
+namespace ProjectZ.InGame.GameSystems
+{
+    internal class VitaStressStep
+    {
+        public int Kind;
+        public string Name;
+        public string Map;
+        public string Entry;
+        public int Mode;
+        public int Count;
+        public int Frames;
+        public Vector2 Position;
+    }
+
+    internal static class VitaStressTest
+    {
+        public static bool Active;
+        public static bool BlockSaves;
+
+        private const int KindMapChange = 0;
+        private const int KindWait = 1;
+        private const int KindTour = 2;
+        private const int KindDoors = 3;
+        private const int KindMenus = 4;
+        private const int KindInstrument = 5;
+        private const int KindReload = 6;
+        private const int KindMark = 7;
+        private const int KindRestore = 8;
+        private const int KindFinish = 9;
+        private const int KindSettings = 10;
+
+        // Settings change which code runs (shadow sprites, camera borders, render paths, item sprites), so the run
+        // cycles through these on top of the player's settings.
+        private static readonly string[] ProfileNames =
+        {
+            "your settings",
+            "sprite shadows",
+            "classic camera",
+            "classic camera in houses, caves and dungeons",
+            "classic sprites and music, no lighting or fog",
+            "colour correction and pixel grid",
+        };
+        private const int DoorsPerProfile = 20;
+        private const int MaxStatScale = 8;
+        // Frames slower than this missed 60 fps.
+        private const long Missed60Ticks = 20 * TicksPerMs;
+
+        // Tour modes: rooms that contain objects, every field of the map, fields around Link.
+        private const int TourRooms = 0;
+        private const int TourAllFields = 1;
+        private const int TourAroundLink = 2;
+
+        private const long TicksPerMs = 10000;
+        private const long TicksPerSecond = 10000000;
+        private const long SlowFrameTicks = 50 * TicksPerMs;
+
+        private static readonly List<VitaStressStep> _steps = new List<VitaStressStep>();
+        private static readonly List<Vector2> _rooms = new List<Vector2>();
+        private static readonly List<string> _summary = new List<string>();
+        private static System.Diagnostics.Stopwatch _clock;
+
+        private static int _stepIndex;
+        private static bool _stepStarted;
+        private static bool _stopRequested;
+        private static bool _stopping;
+        private static bool _autoStarted;
+        private static int _stepFrame;
+        private static int _phase;
+        private static int _phaseFrame;
+        private static bool _transitionSeen;
+        private static long _issueTicks;
+        private static string _stepMap;
+        private static int _roomIndex;
+        private static long _stepTimeoutSeconds;
+        private static string _status;
+
+        private static long _lastTicks;
+        private static long _lastGcCount;
+        private static long _lastReportTicks;
+        private static long _lastStatusTicks;
+
+        private static long _stepStartTicks;
+        private static long _stepWorst;
+        private static int _stepSlow;
+        private static long _stepAlloc;
+        private static long _stepGcCount;
+        private static long _stepGcMs;
+
+        private static long _markTicks;
+        private static long _markWorst;
+        private static string _markWorstWhere;
+        private static long _markPeakInUse;
+        private static long _markGcCount;
+        private static long _markGcMs;
+        private static int _markLoads;
+
+        private static long _runPeakHeap;
+        private static long _runPeakInUse;
+        private static long _runMinFree;
+        private static long _runWorst;
+        private static string _runWorstWhere;
+        private static long _runLongestLoad;
+        private static string _runLongestLoadWhere;
+        private static int _runLoads;
+        private static int _runSlow;
+        private static int _runWarnings;
+        private static long _runGcCount;
+        private static long _runGcMs;
+
+        private static bool _savedInvincibility;
+        private static bool _savedOneHitKills;
+        private static SaveManager _savedSettings;
+        private static int _nextProfile;
+        private static int _nextScale;
+        private static int _profile;
+        // Gameplay frames (no map change running) per profile and per camera scale: count, ticks, missed 60 fps.
+        private static readonly long[] _profileFrames = new long[6];
+        private static readonly long[] _profileTicks = new long[6];
+        private static readonly long[] _profileMissed = new long[6];
+        private static readonly long[] _scaleFrames = new long[MaxStatScale + 1];
+        private static readonly long[] _scaleTicks = new long[MaxStatScale + 1];
+        private static readonly long[] _scaleMissed = new long[MaxStatScale + 1];
+        private static bool[] _savedAchievements;
+        private static int _slot;
+
+        public static void Toggle()
+        {
+            if (Active)
+            {
+                if (!_stopping)
+                    _stopRequested = true;
+                Game1.GameManager.InGameOverlay.CloseOverlay();
+                return;
+            }
+            if (!Game1.InProgress || MapManager.ObjLink == null || Game1.GameManager.MapManager.CurrentMap == null)
+                return;
+
+            Start();
+            Game1.GameManager.InGameOverlay.CloseOverlay();
+        }
+
+        private static void Start()
+        {
+            _steps.Clear();
+            _summary.Clear();
+            _stepIndex = 0;
+            _stepStarted = false;
+            _stopRequested = false;
+            _stopping = false;
+            _clock = System.Diagnostics.Stopwatch.StartNew();
+            _lastTicks = 0;
+            _lastReportTicks = 0;
+            _lastStatusTicks = 0;
+            _lastGcCount = Game1.VitaMemStat(3);
+
+            _markTicks = 0;
+            ResetMark();
+            _runPeakHeap = 0;
+            _runPeakInUse = 0;
+            _runMinFree = long.MaxValue;
+            _runWorst = 0;
+            _runWorstWhere = "";
+            _runLongestLoad = 0;
+            _runLongestLoadWhere = "";
+            _runLoads = 0;
+            _runSlow = 0;
+            _runWarnings = 0;
+            _runGcCount = Game1.VitaMemStat(3);
+            _runGcMs = Game1.VitaMemStat(4);
+
+            _slot = Game1.GameManager.SaveSlot;
+            _savedInvincibility = GameSettings.ChInvincibility;
+            _savedOneHitKills = GameSettings.ChOneHitKills;
+            _savedSettings = SettingsSaveLoad.VitaCapture();
+            _nextProfile = 1;
+            _nextScale = 1;
+            _profile = 0;
+            Array.Clear(_profileFrames, 0, _profileFrames.Length);
+            Array.Clear(_profileTicks, 0, _profileTicks.Length);
+            Array.Clear(_profileMissed, 0, _profileMissed.Length);
+            Array.Clear(_scaleFrames, 0, _scaleFrames.Length);
+            Array.Clear(_scaleTicks, 0, _scaleTicks.Length);
+            Array.Clear(_scaleMissed, 0, _scaleMissed.Length);
+            _savedAchievements = new bool[AchievementManager.Count];
+            for (var i = 0; i < _savedAchievements.Length; i++)
+                _savedAchievements[i] = AchievementManager.IsEarned(i);
+
+            // Link can't die and enemies die from one sword hit, so nothing stops the run.
+            GameSettings.ChInvincibility = true;
+            GameSettings.ChOneHitKills = true;
+            BlockSaves = true;
+            Game1.VitaStressMode(true);
+
+            BuildPlan();
+            Active = true;
+            Log("start: " + _steps.Count + " steps, save slot " + _slot + ", on " + CurrentMapName() + ", saving is off until the end");
+            LogMemory("baseline");
+        }
+
+        private static void BuildPlan()
+        {
+            // Desktop: LADX_STRESS_PLAN=doors runs only the overworld door phase.
+            if (System.Environment.GetEnvironmentVariable("LADX_STRESS_PLAN") == "doors")
+            {
+                Add(new VitaStressStep { Kind = KindDoors, Name = "every overworld door", Mode = 1 });
+                AddMark("overworld doors");
+                AddFinishSteps();
+                return;
+            }
+            AddDungeon(1, "dungeon1.map", "d1", 0, "dungeon1.map", null, 1048, 53);
+            AddDungeon(2, "dungeon2.map", "d2", 1, "dungeon2.map", null, 728, 309);
+            AddDungeon(3, "dungeon3.map", "d3", 2, "dungeon3.map", null, 1048, 694);
+            AddDungeon(4, "dungeon4.map", "d4", 3, "dungeon4.map", null, 88, 181);
+            AddDungeon(5, "dungeon5.map", "d5", 4, "dungeon5.map", null, 408, 53);
+            AddDungeon(6, "dungeon6.map", "d6", 5, "dungeon6.map", null, 728, 181);
+            AddDungeon(7, "dungeon7_1.map", "d7", 6, "dungeon7_4.map", "d7_4", 408, 182);
+            AddDungeon(8, "dungeon8.map", "d8", 7, "dungeon8.map", null, 568, 53);
+            AddDungeon(0, "dungeon_color.map", "dc_entry", -1, null, null, 0, 0);
+
+            Add(new VitaStressStep { Kind = KindMapChange, Name = "back to the overworld", Map = "overworld.map", Entry = "dc_entry", Mode = 1 });
+            Add(new VitaStressStep { Kind = KindDoors, Name = "every overworld door", Mode = 1 });
+            AddMark("overworld doors");
+            Add(new VitaStressStep { Kind = KindMapChange, Name = "back to the overworld", Map = "overworld.map", Entry = "dc_entry", Mode = 1 });
+            AddSettings();
+            Add(new VitaStressStep { Kind = KindTour, Name = "whole overworld", Mode = TourAllFields, Frames = 20 });
+            AddMenus("menus on the overworld");
+            AddMark("overworld tour");
+
+            for (var i = 1; i <= 3; i++)
+            {
+                AddSettings();
+                Add(new VitaStressStep { Kind = KindReload, Name = "load the save (" + i + "/3)" });
+                AddWait("settle", 120);
+                AddMenus("menus after loading");
+                Add(new VitaStressStep { Kind = KindTour, Name = "around the save position", Mode = TourAroundLink, Count = 1, Frames = 20 });
+            }
+            AddMark("save loads");
+            AddFinishSteps();
+        }
+
+        private static void AddDungeon(int number, string map, string entry, int instrument, string instrumentMap, string instrumentEntry, int x, int y)
+        {
+            var label = number == 0 ? "color dungeon" : "dungeon " + number;
+            AddSettings();
+            Add(new VitaStressStep { Kind = KindMapChange, Name = "enter " + label, Map = map, Entry = entry });
+            AddWait("settle", 60);
+            AddMenus("menus in " + label);
+            Add(new VitaStressStep { Kind = KindTour, Name = "rooms of " + map, Mode = TourRooms, Frames = 40 });
+            Add(new VitaStressStep { Kind = KindDoors, Name = "side areas of " + map, Mode = 0 });
+            if (instrument >= 0)
+            {
+                if (instrumentMap != map)
+                    Add(new VitaStressStep { Kind = KindMapChange, Name = "go to the instrument", Map = instrumentMap, Entry = instrumentEntry });
+                Add(new VitaStressStep { Kind = KindInstrument, Name = "instrument of " + label, Map = instrumentMap, Count = instrument, Position = new Vector2(x + 8, y + 24) });
+            }
+            else
+                Add(new VitaStressStep { Kind = KindMapChange, Name = "leave " + label, Map = "overworld.map", Entry = entry });
+            Add(new VitaStressStep { Kind = KindTour, Name = "overworld around the exit", Mode = TourAroundLink, Count = 1, Frames = 30 });
+            AddMark(label);
+        }
+
+        private static void AddWait(string name, int frames)
+        {
+            Add(new VitaStressStep { Kind = KindWait, Name = name, Frames = frames });
+        }
+
+        private static void AddMenus(string name)
+        {
+            Add(new VitaStressStep { Kind = KindMenus, Name = name });
+        }
+
+        private static void AddMark(string name)
+        {
+            Add(new VitaStressStep { Kind = KindMark, Name = name });
+        }
+
+        private static VitaStressStep SettingsStep()
+        {
+            var profile = _nextProfile;
+            _nextProfile = (_nextProfile + 1) % ProfileNames.Length;
+            return new VitaStressStep { Kind = KindSettings, Name = "settings: " + ProfileNames[profile], Count = profile };
+        }
+
+        private static void AddSettings()
+        {
+            Add(SettingsStep());
+        }
+
+        private static void ApplyProfile(int profile)
+        {
+            var classicSprites = GameSettings.ClassicSprites;
+            var classicMusic = GameSettings.ClassicMusic;
+            SettingsSaveLoad.VitaApply(_savedSettings);
+            if (profile == 1)
+                GameSettings.EnableShadows = false;
+            else if (profile == 2)
+            {
+                GameSettings.CameraMode = 1;
+                GameSettings.ClassicBorder = 1;
+                GameSettings.ClassicScrolling = true;
+                GameSettings.CameraLock = true;
+            }
+            else if (profile == 3)
+            {
+                GameSettings.CameraMode = 2;
+                GameSettings.ClassicOverworld = false;
+                GameSettings.ClassicHouses = true;
+                GameSettings.ClassicCaves = true;
+                GameSettings.ClassicDungeons = true;
+                GameSettings.ClassicCastle = true;
+                GameSettings.ClassicEgg = true;
+                GameSettings.Classic2DMaps = true;
+                GameSettings.ClassicBosses = true;
+                GameSettings.ClassicBorder = 2;
+            }
+            else if (profile == 4)
+            {
+                GameSettings.ClassicSprites = true;
+                GameSettings.ClassicMusic = true;
+                GameSettings.GlobalLights = false;
+                GameSettings.ObjectLights = false;
+                GameSettings.FogEffects = false;
+                GameSettings.ModernFogEnabled = false;
+            }
+            else if (profile == 5)
+            {
+                GameSettings.ColorCorrection = true;
+                GameSettings.PixelSnapping = true;
+                GameSettings.PixelGrid = true;
+            }
+            if (profile != 0)
+            {
+                GameSettings.GameScale = _nextScale;
+                _nextScale = _nextScale % Game1.MaxGameScale + 1;
+            }
+            _profile = profile;
+            GameSettings.ChInvincibility = true;
+            GameSettings.ChOneHitKills = true;
+            ApplySettingsChange(classicSprites, classicMusic);
+            Log("settings: " + ProfileNames[profile] + " (" + SettingsText() + ")");
+        }
+
+        private static string SettingsText()
+        {
+            return "camera " + GameSettings.CameraMode + ", border " + GameSettings.ClassicBorder +
+                ", dynamic shadows " + GameSettings.EnableShadows + ", scale " + GameSettings.GameScale + ", classic sprites " +
+                GameSettings.ClassicSprites + ", classic music " + GameSettings.ClassicMusic + ", lights " + GameSettings.GlobalLights +
+                ", colour correction " + GameSettings.ColorCorrection + ", pixel grid " + GameSettings.PixelGrid;
+        }
+
+        // What the settings pages do when these values change.
+        private static void ApplySettingsChange(bool classicSprites, bool classicMusic)
+        {
+            Game1.ScaleChanged = true;
+            Camera.SnapCameraTimer = 20f;
+            var link = MapManager.ObjLink;
+            if (GameSettings.ClassicSprites != classicSprites)
+            {
+                if (link != null && link.Boomerang != null)
+                    link.Boomerang.ToggleAnimator(GameSettings.ClassicSprites);
+                Game1.GameManager.ItemManager.Load();
+            }
+            if (GameSettings.ClassicMusic != classicMusic && link?.Map != null)
+                foreach (var gameObject in link.Map.Objects.GetObjectsOfType(typeof(ObjMusicTile)))
+                    ((ObjMusicTile)gameObject).UpdateMusicData();
+        }
+
+        private static void AddFinishSteps()
+        {
+            Add(new VitaStressStep { Kind = KindRestore, Name = "restore settings" });
+            Add(new VitaStressStep { Kind = KindReload, Name = "reload the save" });
+            Add(new VitaStressStep { Kind = KindFinish, Name = "summary" });
+        }
+
+        private static void Add(VitaStressStep step)
+        {
+            _steps.Add(step);
+        }
+
+        public static void Update()
+        {
+            if (!Active)
+            {
+                var autoStart = Game1.VitaMemStat(11);
+                if (autoStart > 0 && !_autoStarted && Game1.VitaMemStat(10) >= autoStart && Game1.InProgress &&
+                    MapManager.ObjLink != null && Game1.GameManager.MapManager.CurrentMap != null && !TransitionBusy())
+                {
+                    _autoStarted = true;
+                    Start();
+                }
+                return;
+            }
+
+            var now = _clock.ElapsedTicks;
+            var frameTicks = now - _lastTicks;
+            _lastTicks = now;
+
+            // Paused while the options menu is open (the test can be stopped from there).
+            if (Game1.GameManager.InGameOverlay.MenuIsOpen())
+            {
+                _stepStartTicks += frameTicks;
+                _issueTicks += frameTicks;
+                return;
+            }
+
+            TrackFrame(frameTicks);
+
+            if (_stopRequested)
+            {
+                _stopRequested = false;
+                _stopping = true;
+                Log("stopped by the user during '" + _steps[_stepIndex].Name + "'");
+                _steps.RemoveRange(_stepIndex, _steps.Count - _stepIndex);
+                AddFinishSteps();
+                _stepStarted = false;
+            }
+
+            var step = _steps[_stepIndex];
+            if (!_stepStarted)
+                BeginStep(step, now);
+
+            _stepFrame++;
+            AutoConfirm();
+
+            var done = TickStep(step, now);
+            if (!done && (now - _stepStartTicks) / TicksPerSecond > _stepTimeoutSeconds)
+            {
+                Warn("timeout after " + _stepTimeoutSeconds + " s in '" + step.Name + "': " + StateText());
+                done = true;
+            }
+            if (done)
+            {
+                EndStep(step);
+                _stepIndex++;
+                _stepStarted = false;
+                if (_stepIndex >= _steps.Count)
+                {
+                    Active = false;
+                    _status = null;
+                    Game1.VitaStressMode(false);
+                    return;
+                }
+            }
+
+            if (now - _lastReportTicks >= 10 * TicksPerSecond)
+            {
+                _lastReportTicks = now;
+                LogMemory("every 10 s");
+            }
+            if (now - _lastStatusTicks >= TicksPerSecond / 2)
+                UpdateStatus();
+        }
+
+        public static void Draw(SpriteBatch spriteBatch)
+        {
+            if (!Active || _status == null)
+                return;
+
+            var size = DrawHelper.MeasureString(_status);
+            spriteBatch.Draw(Resources.SprWhite, new Rectangle(0, 0, (int)size.X + 8, (int)size.Y + 6), Color.Black * 0.6f);
+            DrawHelper.DrawString(spriteBatch, _status, new Vector2(4, 3), Color.White);
+        }
+
+        private static void BeginStep(VitaStressStep step, long now)
+        {
+            _stepStarted = true;
+            _stepFrame = 0;
+            _phase = 0;
+            _phaseFrame = 0;
+            _transitionSeen = false;
+            _stepStartTicks = now;
+            _stepWorst = 0;
+            _stepSlow = 0;
+            _stepAlloc = Game1.VitaMemStat(5);
+            _stepGcCount = Game1.VitaMemStat(3);
+            _stepGcMs = Game1.VitaMemStat(4);
+            _stepMap = CurrentMapName();
+            _stepTimeoutSeconds = 10;
+
+            Log("step " + (_stepIndex + 1) + "/" + _steps.Count + " '" + step.Name + "' on " + _stepMap);
+
+            if (step.Kind == KindMapChange)
+                _stepTimeoutSeconds = 60;
+            else if (step.Kind == KindReload)
+                _stepTimeoutSeconds = 90;
+            else if (step.Kind == KindInstrument)
+                _stepTimeoutSeconds = 150;
+            else if (step.Kind == KindMenus)
+                _stepTimeoutSeconds = 30;
+            else if (step.Kind == KindWait)
+                _stepTimeoutSeconds = 30 + step.Frames / 20;
+            else if (step.Kind == KindTour)
+            {
+                BuildRooms(step);
+                _stepTimeoutSeconds = 30 + _rooms.Count * step.Frames / 20;
+            }
+            else if (step.Kind == KindDoors)
+                ExpandDoors(step);
+            else if (step.Kind == KindSettings)
+                ApplyProfile(step.Count);
+
+            UpdateStatus();
+        }
+
+        private static void EndStep(VitaStressStep step)
+        {
+            var ticks = _clock.ElapsedTicks - _stepStartTicks;
+            Log("done '" + step.Name + "' in " + Seconds(ticks) + " s, " + _stepFrame + " frames, worst frame " + Ms(_stepWorst) +
+                " ms, slow frames " + _stepSlow + ", allocated " + Mb(Game1.VitaMemStat(5) - _stepAlloc) +
+                " MB, collections " + (Game1.VitaMemStat(3) - _stepGcCount) + " (" + (Game1.VitaMemStat(4) - _stepGcMs) + " ms) | " + MemoryText());
+        }
+
+        private static bool TickStep(VitaStressStep step, long now)
+        {
+            var link = MapManager.ObjLink;
+
+            if (step.Kind == KindWait)
+                return _stepFrame >= step.Frames;
+
+            // A second for scale and camera changes to settle.
+            if (step.Kind == KindSettings)
+                return _stepFrame >= 60;
+
+            if (step.Kind == KindMapChange)
+            {
+                if (_phase == 0)
+                {
+                    // Mode 1: only when not already there.
+                    if (step.Mode == 1 && CurrentMapName() == step.Map && !TransitionBusy())
+                        return true;
+                    if ((TransitionBusy() || link.IsDying()) && _stepFrame < 600)
+                        return false;
+                    link.MapTransitionStart = link.EntityPosition.Position;
+                    link.MapTransitionEnd = link.EntityPosition.Position;
+                    link.TransitionOutWalking = false;
+                    Transition().AppendMapChange(step.Map, step.Entry);
+                    _issueTicks = now;
+                    _phase = 1;
+                    return false;
+                }
+                if (_phase == 1)
+                    return WaitForArrival(step.Map, now, false);
+                _phaseFrame++;
+                return _phaseFrame >= 20;
+            }
+
+            if (step.Kind == KindReload)
+            {
+                if (_phase == 0)
+                {
+                    if (TransitionBusy() && _stepFrame < 600)
+                        return false;
+                    if (!SaveGameSaveLoad.SaveExists(_slot))
+                    {
+                        Warn("no save in slot " + _slot + ", nothing to load");
+                        return true;
+                    }
+                    Game1.GameManager.LoadSaveFile(_slot);
+                    _issueTicks = now;
+                    _phase = 1;
+                    return false;
+                }
+                if (_phase == 1)
+                    return WaitForArrival(null, now, false);
+                _phaseFrame++;
+                return _phaseFrame >= 20;
+            }
+
+            if (step.Kind == KindTour)
+            {
+                if (CurrentMapName() != _stepMap)
+                {
+                    if (_phase == 0)
+                    {
+                        Warn("left " + _stepMap + " during the tour (room " + (_roomIndex + 1) + "/" + _rooms.Count + "), now on " + CurrentMapName());
+                        _phase = 1;
+                    }
+                    if (TransitionBusy())
+                        return false;
+                    ReturnTo(_stepMap);
+                    return true;
+                }
+                if (TransitionBusy())
+                    return false;
+                if (_rooms.Count == 0)
+                    return _stepFrame >= 120;
+
+                if (_phaseFrame == 0)
+                {
+                    PlaceLink(_rooms[_roomIndex]);
+                    UpdateStatus();
+                }
+                _phaseFrame++;
+                if (_phaseFrame == step.Frames / 2)
+                    PressSword();
+                if (_phaseFrame >= step.Frames)
+                {
+                    _phaseFrame = 0;
+                    _roomIndex++;
+                }
+                return _roomIndex >= _rooms.Count;
+            }
+
+            if (step.Kind == KindDoors)
+                return true;
+
+            if (step.Kind == KindMenus)
+                return TickMenus();
+
+            if (step.Kind == KindInstrument)
+            {
+                if (_phase == 0)
+                {
+                    if (TransitionBusy())
+                        return false;
+                    if (CurrentMapName() != step.Map)
+                        Warn("instrument" + step.Count + " is picked up on " + CurrentMapName() + " instead of " + step.Map);
+                    PlaceLink(step.Position);
+                    _phase = 1;
+                    _phaseFrame = 0;
+                    return false;
+                }
+                if (_phase == 1)
+                {
+                    _phaseFrame++;
+                    if (_phaseFrame < 30 || (link.CurrentState != ProjectZ.InGame.GameObjects.ObjLink.State.Idle && _phaseFrame < 180))
+                        return false;
+                    Log("picking up instrument" + step.Count + " (Link state " + link.CurrentState + ") | " + MemoryText());
+                    link.PickUpItem(new GameItemCollected("instrument" + step.Count) { Count = 1 }, true);
+                    _issueTicks = now;
+                    _phase = 2;
+                    return false;
+                }
+                if (_phase == 2)
+                    return WaitForArrival("overworld.map", now, true);
+                _phaseFrame++;
+                return _phaseFrame >= 30;
+            }
+
+            if (step.Kind == KindMark)
+            {
+                AddCheckpoint(step.Name);
+                return true;
+            }
+
+            if (step.Kind == KindRestore)
+            {
+                Restore();
+                return true;
+            }
+
+            if (step.Kind == KindFinish)
+            {
+                LogSummary();
+                return true;
+            }
+            return true;
+        }
+
+        // Waits until a started transition has finished; moves on to phase 2 (settle frames) on arrival.
+        private static bool WaitForArrival(string expectedMap, long now, bool sequence)
+        {
+            if (TransitionBusy())
+            {
+                _transitionSeen = true;
+                return false;
+            }
+            if (!_transitionSeen)
+            {
+                // The instrument sequence takes ~20 s before its warp starts; plain map changes start right away.
+                if (!sequence && _stepFrame > 300)
+                {
+                    Warn("the map change did not start: " + StateText());
+                    return true;
+                }
+                return false;
+            }
+            if (expectedMap != null && CurrentMapName() != expectedMap)
+            {
+                if (sequence)
+                    return false;
+                Warn("expected " + expectedMap + ", arrived on " + CurrentMapName());
+            }
+
+            var ticks = now - _issueTicks;
+            _runLoads++;
+            _markLoads++;
+            if (!sequence && ticks > _runLongestLoad)
+            {
+                _runLongestLoad = ticks;
+                _runLongestLoadWhere = CurrentMapName();
+            }
+            Log((sequence ? "sequence finished, " : "") + "arrived on " + CurrentMapName() + " after " + Ms(ticks) + " ms (" +
+                ObjectCount() + " map objects) | " + MemoryText());
+            _phase = 3;
+            _phaseFrame = 0;
+            return false;
+        }
+
+        private static bool TickMenus()
+        {
+            var overlay = Game1.GameManager.InGameOverlay;
+            if (_phase == 0)
+            {
+                if (TransitionBusy() || overlay.TextboxOverlay.IsOpen)
+                    return _stepFrame > 600;
+                ControlHandler.DebugButtons |= CButtons.Start;
+                _phase = 1;
+                _phaseFrame = 0;
+                return false;
+            }
+
+            _phaseFrame++;
+            if (_phase == 1 && _phaseFrame == 50)
+            {
+                if (!overlay.VitaInventoryOpen)
+                {
+                    Log("inventory did not open here");
+                    return true;
+                }
+                // Switches to the map.
+                ControlHandler.DebugButtons |= CButtons.Select;
+                _phase = 2;
+                _phaseFrame = 0;
+            }
+            else if (_phase == 2 && _phaseFrame == 70)
+            {
+                if (overlay.VitaInventoryOpen)
+                    ControlHandler.DebugButtons |= CButtons.Select;
+                _phase = 3;
+                _phaseFrame = 0;
+            }
+            else if (_phase == 3 && _phaseFrame == 50)
+            {
+                if (overlay.VitaInventoryOpen)
+                    ControlHandler.DebugButtons |= CButtons.Start;
+                _phase = 4;
+                _phaseFrame = 0;
+            }
+            else if (_phase == 4 && _phaseFrame == 40)
+            {
+                if (overlay.VitaInventoryOpen)
+                {
+                    Warn("inventory still open, closing it");
+                    overlay.CloseOverlay();
+                }
+                return true;
+            }
+            return false;
+        }
+
+        private static void BuildRooms(VitaStressStep step)
+        {
+            _rooms.Clear();
+            _roomIndex = 0;
+
+            var map = Game1.GameManager.MapManager.CurrentMap;
+            if (map == null || map.Is2dMap)
+                return;
+
+            var left = map.MapOffsetX * Values.TileSize;
+            var top = map.MapOffsetY * Values.TileSize;
+            var width = map.MapWidth * Values.TileSize;
+            var height = map.MapHeight * Values.TileSize;
+            var columns = (width + Values.FieldWidth - 1) / Values.FieldWidth;
+            var rows = (height + Values.FieldHeight - 1) / Values.FieldHeight;
+            if (columns <= 0 || rows <= 0)
+                return;
+
+            var use = new bool[columns * rows];
+            if (step.Mode == TourRooms)
+            {
+                // Rooms are the fields that contain a few objects (walls, doors, enemies).
+                var counts = new int[columns * rows];
+                foreach (var gameObject in map.Objects.GetObjects(left, top, width, height))
+                {
+                    var column = ((int)gameObject.EntityPosition.X - left) / Values.FieldWidth;
+                    var row = ((int)gameObject.EntityPosition.Y - top) / Values.FieldHeight;
+                    if (column >= 0 && column < columns && row >= 0 && row < rows)
+                        counts[row * columns + column]++;
+                }
+                for (var i = 0; i < counts.Length; i++)
+                    use[i] = counts[i] >= 3;
+            }
+            else if (step.Mode == TourAllFields)
+            {
+                for (var i = 0; i < use.Length; i++)
+                    use[i] = true;
+            }
+            else
+            {
+                var link = MapManager.ObjLink;
+                var linkColumn = ((int)link.EntityPosition.X - left) / Values.FieldWidth;
+                var linkRow = ((int)link.EntityPosition.Y - top) / Values.FieldHeight;
+                for (var row = linkRow - step.Count; row <= linkRow + step.Count; row++)
+                    for (var column = linkColumn - step.Count; column <= linkColumn + step.Count; column++)
+                        if (column >= 0 && column < columns && row >= 0 && row < rows)
+                            use[row * columns + column] = true;
+            }
+
+            // Row by row, alternating direction, so that most moves go to a neighbouring field.
+            var doors = DoorAreas(map);
+            for (var row = 0; row < rows; row++)
+            {
+                for (var i = 0; i < columns; i++)
+                {
+                    var column = row % 2 == 0 ? i : columns - 1 - i;
+                    if (use[row * columns + column])
+                        _rooms.Add(SpotAwayFromDoors(doors, left + column * Values.FieldWidth, top + row * Values.FieldHeight));
+                }
+            }
+
+            if (step.Count > 0 && step.Mode == TourRooms && _rooms.Count > step.Count)
+            {
+                var all = new List<Vector2>();
+                all.AddRange(_rooms);
+                _rooms.Clear();
+                for (var i = 0; i < step.Count; i++)
+                    _rooms.Add(all[i * all.Count / step.Count]);
+            }
+            Log("tour of " + map.MapName + ": " + _rooms.Count + " fields");
+        }
+
+        // Areas around doors to other maps; Link is not placed there during tours.
+        private static List<Rectangle> DoorAreas(ProjectZ.InGame.Map.Map map)
+        {
+            var areas = new List<Rectangle>();
+            foreach (var gameObject in map.Objects.GetObjectsOfType(typeof(ObjDoor)))
+            {
+                var door = (ObjDoor)gameObject;
+                if (string.IsNullOrEmpty(door._nextMap))
+                    continue;
+                areas.Add(new Rectangle((int)door.EntityPosition.X - 24, (int)door.EntityPosition.Y - 24,
+                                        door.EntitySize.Width + 48, door.EntitySize.Height + 48));
+            }
+            return areas;
+        }
+
+        private static readonly int[] SpotOffsetsX = { 0, -48, 48, 0, 0, -48, 48, -48, 48 };
+        private static readonly int[] SpotOffsetsY = { 0, 0, 0, -36, 36, -36, -36, 36, 36 };
+
+        private static Vector2 SpotAwayFromDoors(List<Rectangle> doors, int fieldX, int fieldY)
+        {
+            var centerX = fieldX + Values.FieldWidth / 2;
+            var centerY = fieldY + Values.FieldHeight / 2 + 8;
+            for (var i = 0; i < SpotOffsetsX.Length; i++)
+            {
+                var x = centerX + SpotOffsetsX[i];
+                var y = centerY + SpotOffsetsY[i];
+                var free = true;
+                foreach (var area in doors)
+                    if (area.Contains(x, y))
+                        free = false;
+                if (free)
+                    return new Vector2(x, y);
+            }
+            return new Vector2(centerX, centerY);
+        }
+
+        // After an unplanned map change (a door or hole hit during a tour): go back through a door that leads there.
+        private static void ReturnTo(string mapName)
+        {
+            var map = Game1.GameManager.MapManager.CurrentMap;
+            foreach (var gameObject in map.Objects.GetObjectsOfType(typeof(ObjDoor)))
+            {
+                var door = (ObjDoor)gameObject;
+                if (door._nextMap == mapName && !string.IsNullOrEmpty(door._exitId))
+                {
+                    _steps.Insert(_stepIndex + 1, new VitaStressStep { Kind = KindMapChange, Name = "return to " + mapName + " (" + door._exitId + ")", Map = mapName, Entry = door._exitId });
+                    return;
+                }
+            }
+            Warn("no door back to " + mapName + " on " + map.MapName);
+        }
+
+        // Inserts "enter, look around, go back" for every door that leads to another map.
+        private static void ExpandDoors(VitaStressStep step)
+        {
+            var map = Game1.GameManager.MapManager.CurrentMap;
+            var mapName = map.MapName;
+            if ((step.Mode == 1) != map.IsOverworld)
+            {
+                Warn("'" + step.Name + "' started on " + mapName + ", skipped");
+                return;
+            }
+
+            var doors = new List<ObjDoor>();
+            foreach (var gameObject in map.Objects.GetObjectsOfType(typeof(ObjDoor)))
+                doors.Add((ObjDoor)gameObject);
+
+            var seen = new HashSet<string>();
+            var insertAt = _stepIndex + 1;
+            var targets = 0;
+            foreach (var door in doors)
+            {
+                if (string.IsNullOrEmpty(door._nextMap) || string.IsNullOrEmpty(door._exitId) || string.IsNullOrEmpty(door._entryId))
+                    continue;
+                if (door._nextMap == mapName || door._nextMap == "overworld.map")
+                    continue;
+                // Dungeons have their own steps; the egg and the final maps start the ending.
+                if (step.Mode == 1 && (door._nextMap.StartsWith("dungeon") || door._nextMap.StartsWith("egg") || door._nextMap.StartsWith("final")))
+                    continue;
+                var key = step.Mode == 1 ? door._nextMap : door._nextMap + "|" + door._exitId;
+                if (!seen.Add(key))
+                    continue;
+
+                _steps.Insert(insertAt++, new VitaStressStep { Kind = KindMapChange, Name = "enter " + door._nextMap + " (" + door._exitId + ")", Map = door._nextMap, Entry = door._exitId });
+                _steps.Insert(insertAt++, new VitaStressStep { Kind = KindTour, Name = "rooms of " + door._nextMap, Mode = TourRooms, Count = 6, Frames = 40 });
+                _steps.Insert(insertAt++, new VitaStressStep { Kind = KindMapChange, Name = "back to " + mapName + " (" + door._entryId + ")", Map = mapName, Entry = door._entryId });
+                targets++;
+                if (step.Mode == 1 && targets % DoorsPerProfile == 0)
+                    _steps.Insert(insertAt++, SettingsStep());
+            }
+            Log("doors on " + mapName + ": " + doors.Count + " doors, " + targets + " targets");
+        }
+
+        private static void PlaceLink(Vector2 position)
+        {
+            var link = MapManager.ObjLink;
+            link.SetPosition(position);
+            link.EntityPosition.Z = 0;
+            MapManager.Camera.ForceUpdate(Game1.GameManager.MapManager.GetCameraTarget());
+        }
+
+        private static void PressSword()
+        {
+            var equipment = Game1.GameManager.Equipment;
+            for (var i = 0; i < 4 && i < equipment.Length; i++)
+            {
+                if (equipment[i] != null && equipment[i].Name != null && equipment[i].Name.StartsWith("sword"))
+                {
+                    ControlHandler.DebugButtons |= (CButtons)((int)CButtons.A << i);
+                    return;
+                }
+            }
+        }
+
+        // Text boxes and game sequences wait for a button press.
+        private static void AutoConfirm()
+        {
+            var overlay = Game1.GameManager.InGameOverlay;
+            if ((overlay.TextboxOverlay.IsOpen || overlay.VitaSequenceOpen) && !overlay.VitaInventoryOpen && _stepFrame % 10 == 5)
+                ControlHandler.DebugButtons |= ControlHandler.ConfirmButton;
+        }
+
+        private static void Restore()
+        {
+            if (_savedSettings != null)
+            {
+                var classicSprites = GameSettings.ClassicSprites;
+                var classicMusic = GameSettings.ClassicMusic;
+                SettingsSaveLoad.VitaApply(_savedSettings);
+                ApplySettingsChange(classicSprites, classicMusic);
+                Log("settings restored (" + SettingsText() + ")");
+            }
+            _profile = 0;
+            GameSettings.ChInvincibility = _savedInvincibility;
+            GameSettings.ChOneHitKills = _savedOneHitKills;
+            if (_savedAchievements != null)
+                for (var i = 0; i < _savedAchievements.Length; i++)
+                    AchievementManager.SetEarned(i, _savedAchievements[i]);
+
+            // Without a save to reload, the test's progress (instruments, opened doors) would get saved.
+            if (SaveGameSaveLoad.SaveExists(_slot))
+            {
+                BlockSaves = false;
+                Log("settings and achievements restored, saving is on again");
+            }
+            else
+                Warn("no save in slot " + _slot + ": saving stays off until the game is restarted");
+        }
+
+        private static void TrackFrame(long frameTicks)
+        {
+            var inUse = Game1.VitaMemStat(2);
+            if (inUse > _runPeakInUse)
+                _runPeakInUse = inUse;
+            if (inUse > _markPeakInUse)
+                _markPeakInUse = inUse;
+            var heap = Game1.VitaMemStat(0);
+            if (heap > _runPeakHeap)
+                _runPeakHeap = heap;
+
+            if (!TransitionBusy())
+            {
+                var scale = (int)Math.Round(MapManager.Camera.Scale);
+                scale = scale < 0 ? 0 : scale > MaxStatScale ? MaxStatScale : scale;
+                var missed = frameTicks > Missed60Ticks ? 1 : 0;
+                _profileFrames[_profile]++;
+                _profileTicks[_profile] += frameTicks;
+                _profileMissed[_profile] += missed;
+                _scaleFrames[scale]++;
+                _scaleTicks[scale] += frameTicks;
+                _scaleMissed[scale] += missed;
+            }
+
+            if (frameTicks > _stepWorst)
+                _stepWorst = frameTicks;
+            if (frameTicks > SlowFrameTicks)
+            {
+                _stepSlow++;
+                _runSlow++;
+            }
+            if (frameTicks > _markWorst)
+            {
+                _markWorst = frameTicks;
+                _markWorstWhere = Where();
+            }
+            if (frameTicks > _runWorst)
+            {
+                _runWorst = frameTicks;
+                _runWorstWhere = Where();
+            }
+
+            var collections = Game1.VitaMemStat(3);
+            if (collections != _lastGcCount)
+            {
+                _lastGcCount = collections;
+                Log("collection #" + collections + " during '" + CurrentStepName() + "' (" + Transition().CurrentState + ", " + CurrentMapName() +
+                    "), frame took " + Ms(frameTicks) + " ms | " + MemoryText());
+            }
+        }
+
+        private static void AddCheckpoint(string name)
+        {
+            var now = _clock.ElapsedTicks;
+            var line = name + ": " + Seconds(now - _markTicks) + " s, " + _markLoads + " map loads, worst frame " + Ms(_markWorst) + " ms (" +
+                       _markWorstWhere + "), collections " + (Game1.VitaMemStat(3) - _markGcCount) + " (" + (Game1.VitaMemStat(4) - _markGcMs) +
+                       " ms), peak in use " + Mb(_markPeakInUse) + " MB, now " + MemoryText();
+            _summary.Add(line);
+            Log("=== checkpoint " + line);
+            LogMemory("checkpoint");
+            _markTicks = now;
+            ResetMark();
+        }
+
+        private static void ResetMark()
+        {
+            _markWorst = 0;
+            _markWorstWhere = "";
+            _markPeakInUse = 0;
+            _markGcCount = Game1.VitaMemStat(3);
+            _markGcMs = Game1.VitaMemStat(4);
+            _markLoads = 0;
+        }
+
+        private static void LogSummary()
+        {
+            Log("=== summary: " + Seconds(_clock.ElapsedTicks) + " s, " + _runWarnings + " warnings, " + _runLoads + " map loads, " +
+                _runSlow + " frames over 50 ms, worst frame " + Ms(_runWorst) + " ms (" + _runWorstWhere + "), longest map change " +
+                Ms(_runLongestLoad) + " ms (" + _runLongestLoadWhere + "), collections " + (Game1.VitaMemStat(3) - _runGcCount) + " (" +
+                (Game1.VitaMemStat(4) - _runGcMs) + " ms), peak heap " + Mb(_runPeakHeap) + " MB, peak in use " + Mb(_runPeakInUse) +
+                " MB, lowest free user memory " + (_runMinFree == long.MaxValue ? "?" : Mb(_runMinFree)) + " MB");
+            foreach (var line in _summary)
+                Log("    " + line);
+            Log("frame rate by settings profile (gameplay frames, no map changes):");
+            for (var i = 0; i < ProfileNames.Length; i++)
+                if (_profileFrames[i] > 0)
+                    Log("    " + ProfileNames[i] + ": " + FrameStats(_profileFrames[i], _profileTicks[i], _profileMissed[i]));
+            Log("frame rate by game scale:");
+            for (var i = 0; i <= MaxStatScale; i++)
+                if (_scaleFrames[i] > 0)
+                    Log("    " + (i == 0 ? "below 1" : i.ToString()) + "x: " + FrameStats(_scaleFrames[i], _scaleTicks[i], _scaleMissed[i]));
+            Log("finished");
+        }
+
+        private static string FrameStats(long frames, long ticks, long missed)
+        {
+            var fps = ticks > 0 ? frames * 10.0 * TicksPerSecond / ticks : 0;
+            return frames + " frames, " + ((int)fps / 10) + "." + ((int)fps % 10) + " fps, " + (missed * 100 / frames) +
+                   "% of frames missed 60 fps";
+        }
+
+        private static void LogMemory(string label)
+        {
+            var systemFree = Game1.VitaMemStat(6);
+            if (systemFree > 0 && systemFree < _runMinFree)
+                _runMinFree = systemFree;
+            Log("memory (" + label + "): step " + (_stepIndex + 1) + "/" + _steps.Count + " '" + CurrentStepName() + "' on " + CurrentMapName() +
+                " (" + ObjectCount() + " map objects) | " + MemoryText() + ", ram used " + Mb(Game1.VitaMemStat(9)) + " MB, free user " +
+                Mb(systemFree) + " MB, cdram " + Mb(Game1.VitaMemStat(7)) + " MB | peak heap " + Mb(_runPeakHeap) + " MB, peak in use " +
+                Mb(_runPeakInUse) + " MB, total collections " + Game1.VitaMemStat(3) + " (" + Game1.VitaMemStat(4) + " ms)");
+        }
+
+        private static void UpdateStatus()
+        {
+            _lastStatusTicks = _clock.ElapsedTicks;
+            if (_stepIndex >= _steps.Count)
+                return;
+            var step = _steps[_stepIndex];
+            var detail = step.Kind == KindTour && _rooms.Count > 0 ? " " + (_roomIndex + 1) + "/" + _rooms.Count : "";
+            _status = "Stress test " + (_stepIndex + 1) + "/" + _steps.Count + ": " + step.Name + detail + "\n" + CurrentMapName() +
+                      "  heap " + Mb(Game1.VitaMemStat(0)) + " MB  in use " + Mb(Game1.VitaMemStat(2)) + " MB  peak " + Mb(_runPeakInUse) + " MB";
+        }
+
+        private static MapTransitionSystem Transition()
+        {
+            return (MapTransitionSystem)Game1.GameManager.GameSystems[typeof(MapTransitionSystem)];
+        }
+
+        private static bool TransitionBusy()
+        {
+            var state = Transition().CurrentState;
+            return state == MapTransitionSystem.TransitionState.TransitionOut ||
+                   state == MapTransitionSystem.TransitionState.TransitionBlank_0 ||
+                   state == MapTransitionSystem.TransitionState.TransitionBlank_1 ||
+                   state == MapTransitionSystem.TransitionState.TransitionIn ||
+                   MapManager.ObjLink.IsTransitioning;
+        }
+
+        private static string StateText()
+        {
+            var link = MapManager.ObjLink;
+            var overlay = Game1.GameManager.InGameOverlay;
+            return "transition " + Transition().CurrentState + ", Link " + link.CurrentState + (link.IsTransitioning ? " (transitioning)" : "") +
+                   (link.UpdatePlayer ? "" : " (frozen)") + ", map " + CurrentMapName() + ", text box " + overlay.TextboxOverlay.IsOpen +
+                   ", sequence " + overlay.VitaSequenceOpen + ", inventory " + overlay.VitaInventoryOpen;
+        }
+
+        private static string CurrentMapName()
+        {
+            var map = Game1.GameManager.MapManager.CurrentMap;
+            return map == null || map.MapName == null ? "(none)" : map.MapName;
+        }
+
+        private static string CurrentStepName()
+        {
+            return _stepIndex < _steps.Count ? _steps[_stepIndex].Name : "(end)";
+        }
+
+        private static string Where()
+        {
+            return CurrentStepName() + " on " + CurrentMapName() + ", frame " + Game1.VitaMemStat(10);
+        }
+
+        private static int ObjectCount()
+        {
+            var map = Game1.GameManager.MapManager.CurrentMap;
+            return map == null ? 0 : map.Objects.ObjectList.Count + map.Objects.ObjectListB.Count;
+        }
+
+        private static string MemoryText()
+        {
+            return "heap " + Mb(Game1.VitaMemStat(0)) + " MB, in use " + Mb(Game1.VitaMemStat(2)) + " MB, textures " + Mb(Game1.VitaMemStat(8)) + " MB";
+        }
+
+        private static void Warn(string message)
+        {
+            _runWarnings++;
+            Log("WARNING " + message);
+        }
+
+        private static void Log(string message)
+        {
+            var ticks = _clock == null ? 0 : _clock.ElapsedTicks;
+            System.Console.WriteLine("stress: [" + Seconds(ticks) + " s, frame " + Game1.VitaMemStat(10) + "] " + message);
+        }
+
+        private static string Seconds(long ticks)
+        {
+            var tenths = ticks / (TicksPerSecond / 10);
+            return (tenths / 10) + "." + (tenths % 10);
+        }
+
+        private static string Ms(long ticks)
+        {
+            return (ticks / TicksPerMs).ToString();
+        }
+
+        private static string Mb(long bytes)
+        {
+            var tenths = bytes * 10 / (1024 * 1024);
+            return (tenths / 10) + "." + (tenths % 10);
+        }
+    }
+
+END
+
+FILE InGame/Pages/Settings/CheatsSettingsPage.cs
+FIND
+            _bottomBar.AddElement(new InterfaceButton(new Point(100, 18), new Point(2, 4), "settings_menu_back", element => { Game1.UiPageManager.PopPage(); }));
+            _cheatsOptionsList.AddElement(_contentLayout);
+REPLACE
+            _bottomBar.AddElement(new InterfaceButton(new Point(100, 18), new Point(2, 4), "settings_menu_back", element => { Game1.UiPageManager.PopPage(); }));
+            _bottomBar.AddElement(new InterfaceButton(new Point(100, 18), new Point(2, 4), "settings_cheats_stresstest", element => { VitaStressTest.Toggle(); }));
+            _cheatsOptionsList.AddElement(_contentLayout);
+END
+
+FILE InGame/Things/Language.cs
+FIND
+            { "settings_video_perfoverlay", "Performance Overlay" },
+REPLACE
+            { "settings_video_perfoverlay", "Performance Overlay" },
+            { "settings_cheats_stresstest", "Stress Test" },
+END
+
+FILE InGame/Overlay/OverlayManager.cs
+FIND
+        public bool MenuIsOpen()
+        {
+REPLACE
+        public bool VitaInventoryOpen => _currentMenuState == MenuState.Inventory;
+        public bool VitaSequenceOpen => _currentMenuState == MenuState.GameSequence;
+
+        public bool MenuIsOpen()
+        {
+END
+
+FILE InGame/GameObjects/Things/ObjDoor.cs
+FIND
+        private string _exitId;
+REPLACE
+        public string _exitId;
+END
+
+FILE InGame/SaveLoad/SaveManager.cs
+FIND
+            QueueFileWrite(filePath, text.ToString());
+REPLACE
+            if (!ProjectZ.InGame.GameSystems.VitaStressTest.BlockSaves)
+                QueueFileWrite(filePath, text.ToString());
+END
+
+FILE InGame/SaveLoad/AchievementManager.cs
+FIND
+            SaveManager.QueueFileWrite(GetFilePath(), text.ToString());
+REPLACE
+            if (!ProjectZ.InGame.GameSystems.VitaStressTest.BlockSaves)
+                SaveManager.QueueFileWrite(GetFilePath(), text.ToString());
+END
+
+FILE Game1.cs
+FIND
+        public static void VitaSetPerfOverlayMode(int mode) { }
+REPLACE
+        public static void VitaSetPerfOverlayMode(int mode) { }
+
+        // 0 GC heap, 1 GC free, 2 GC in use, 3 collections, 4 collection ms, 5 allocated total, 6 free user memory,
+        // 7 free cdram, 8 texture bytes, 9 used memory, 10 frame number, 11 LADX_STRESS start frame.
+        public static long VitaMemStat(int what) { return 0; }
+        public static void VitaStressMode(bool on) { }
+END
+
+FILE Game1.cs
+FIND
+            // Update input from any input devices.
+            ControlHandler.Update();
+REPLACE
+            // Update input from any input devices.
+            ControlHandler.Update();
+
+            // Runs after the input update, so the buttons it presses count for this frame.
+            ProjectZ.InGame.GameSystems.VitaStressTest.Update();
+END
+
+FILE Game1.cs
+FIND
+                DrawDebugText();
+                DebugText = "";
+REPLACE
+                DrawDebugText();
+                DebugText = "";
+
+                ProjectZ.InGame.GameSystems.VitaStressTest.Draw(SpriteBatch);
+END
+
+The stress test switches settings profiles and puts the player's settings back afterwards, so it needs the settings
+as values in memory (the settings file is not written while it runs).
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+        public static void LoadSettings()
+        {
+            if (new SaveManager() is not { } saveManager || !saveManager.LoadFile(SettingsFilePath))
+                return;
+REPLACE
+        public static void LoadSettings()
+        {
+            var settings = new SaveManager();
+            if (settings.LoadFile(SettingsFilePath))
+                VitaApply(settings);
+        }
+
+        public static void VitaApply(SaveManager saveManager)
+        {
+END
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+        public static void SaveSettings()
+        {
+            var saveManager = new SaveManager();
+REPLACE
+        public static void SaveSettings()
+        {
+            VitaCapture().Save(SettingsFilePath, Values.SaveRetries);
+        }
+
+        public static SaveManager VitaCapture()
+        {
+            var saveManager = new SaveManager();
+END
+
+FILE InGame/SaveLoad/SettingsSaveLoad.cs
+FIND
+            // Write the save file.
+            saveManager.Save(SettingsFilePath, Values.SaveRetries);
+REPLACE
+            return saveManager;
+END
