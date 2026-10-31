@@ -1,9 +1,9 @@
-Vita: colour correction and the pixel grid need the finished picture as a texture, so they used to switch the whole
-frame to the PC pipeline (DrawGameRT: separate targets for the world, shadows, light and blur, plus main and
-final copies), which ran at 30 fps (about 12 target switches per frame instead of 6). Now the frame is drawn the
-same single-pass way as without them, only into a target instead of the screen: the world into MainRenderTarget
-when the pixel grid has to scale it over, the whole frame into the final target when colour correction has to be
-applied to it. That is one extra full-screen pass per effect.
+Vita: colour correction and the pixel grid need the finished picture, so they used to switch the whole frame to the
+PC pipeline (DrawGameRT: separate targets for the world, shadows, light and blur, plus main and final copies), which
+ran at 30 fps. Now the frame is drawn the same single-pass way as without them. The pixel grid only darkens the grid
+lines (colour * (1 - mask)), so it is multiplied onto the frame where it is drawn instead of copying the frame
+through its shader: no extra pass. Colour correction draws the frame into the final target, which is then presented
+through its shader (one extra pass).
 
 FILE Game1.cs
 FIND
@@ -25,10 +25,7 @@ FIND
             Graphics.GraphicsDevice.SetRenderTarget(ScreenDirect ? null : MainRenderTarget);
 REPLACE
             ScreenDirect = _vitaViewportMatches && (GameManager == null || !_finishedLoading || GameManager.CanDrawToScreen());
-            VitaWorldTarget = !ScreenDirect ? null : pixelGridWanted ? MainRenderTarget : _directPresent ? null : _finalRenderTarget;
-            // The frozen menu world needs a target of its own that nothing else draws into this frame.
-            VitaFrozenTarget = VitaWorldTarget == null || VitaWorldTarget == _finalRenderTarget ? MainRenderTarget :
-                               _directPresent ? _finalRenderTarget : null;
+            VitaWorldTarget = ScreenDirect && !_directPresent ? _finalRenderTarget : null;
             VitaBackBufferAsTarget(ScreenDirect && _directPresent);
 
             Graphics.GraphicsDevice.SetRenderTarget(ScreenDirect ? VitaWorldTarget : MainRenderTarget);
@@ -38,28 +35,24 @@ FILE Game1.cs
 FIND
             if (!ScreenDirect)
             {
-                Graphics.GraphicsDevice.SetRenderTarget(_directPresent ? null : _finalRenderTarget);
-                Graphics.GraphicsDevice.Clear(Color.Black);
+                SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
+                SpriteBatch.Draw(MainRenderTarget, new Rectangle(0, 0, finalWidth, finalHeight), Color.White);
+                SpriteBatch.End();
             }
 REPLACE
-            // With the pixel grid the world still has to be scaled over into the frame's target.
-            var vitaGridPass = ScreenDirect && VitaWorldTarget == MainRenderTarget;
-            if (!ScreenDirect || vitaGridPass)
-            {
-                Graphics.GraphicsDevice.SetRenderTarget(_directPresent ? null : _finalRenderTarget);
-                Graphics.GraphicsDevice.Clear(Color.Black);
-            }
-END
-
-FILE Game1.cs
-FIND
             if (!ScreenDirect)
             {
                 SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
-REPLACE
-            if (!ScreenDirect || vitaGridPass)
+                SpriteBatch.Draw(MainRenderTarget, new Rectangle(0, 0, finalWidth, finalHeight), Color.White);
+                SpriteBatch.End();
+            }
+            else if (doPixelGrid != null)
             {
-                SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
+                // White through the grid shader gives (1 - mask), multiplied onto the frame drawn so far.
+                SpriteBatch.Begin(SpriteSortMode.Deferred, VitaMultiplyBlend, SamplerState.PointClamp, DepthStencilState.None, RasterizerState.CullNone, doPixelGrid);
+                SpriteBatch.Draw(Resources.SprWhite, new Rectangle(0, 0, finalWidth, finalHeight), Color.White);
+                SpriteBatch.End();
+            }
 END
 
 FILE Game1.cs
@@ -67,17 +60,16 @@ FIND
         public static bool ScreenDirect;
 REPLACE
         public static bool ScreenDirect;
-        // Where the single-pass world drawing goes: the screen (null), MainRenderTarget or the final target.
+        // The final target while colour correction needs the frame as a texture, otherwise null (the screen).
         public static RenderTarget2D VitaWorldTarget;
-        public static RenderTarget2D VitaFrozenTarget;
         private bool _vitaViewportMatches;
-END
-
-FILE InGame/Things/GameManager.cs
-FIND
-            var snapshot = InGameOverlay.VitaWorldPaused && !MapManager.ObjLink.IsTransitioning ? Game1.MainRenderTarget : null;
-REPLACE
-            var snapshot = InGameOverlay.VitaWorldPaused && !MapManager.ObjLink.IsTransitioning ? Game1.VitaFrozenTarget : null;
+        private static readonly BlendState VitaMultiplyBlend = new BlendState
+        {
+            ColorSourceBlend = Blend.DestinationColor,
+            ColorDestinationBlend = Blend.Zero,
+            AlphaSourceBlend = Blend.Zero,
+            AlphaDestinationBlend = Blend.One
+        };
 END
 
 FILE InGame/Things/GameManager.cs

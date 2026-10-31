@@ -1,0 +1,3 @@
+{
+    ::fw::setGpuSceneTiming(on);
+}

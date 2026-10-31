@@ -441,6 +441,7 @@ namespace ProjectZ.InGame.GameSystems
             {
                 _stopRequested = false;
                 _stopping = true;
+                Game1.VitaGpuSceneTiming(false);
                 Log("stopped by the user during '" + _steps[_stepIndex].Name + "'");
                 _steps.RemoveRange(_stepIndex, _steps.Count - _stepIndex);
                 AddFinishSteps();
@@ -549,9 +550,16 @@ namespace ProjectZ.InGame.GameSystems
             if (step.Kind == KindWait)
                 return _stepFrame >= step.Frames;
 
-            // A second for scale and camera changes to settle.
+            // A second for scale and camera changes to settle, then two seconds of per-scene GPU times.
             if (step.Kind == KindSettings)
-                return _stepFrame >= 60;
+            {
+                if (_stepFrame == 60)
+                    Game1.VitaGpuSceneTiming(true);
+                if (_stepFrame < 185)
+                    return false;
+                Game1.VitaGpuSceneTiming(false);
+                return true;
+            }
 
             if (step.Kind == KindMapChange)
             {
@@ -1013,7 +1021,8 @@ namespace ProjectZ.InGame.GameSystems
             if (heap > _runPeakHeap)
                 _runPeakHeap = heap;
 
-            if (!TransitionBusy())
+            // Settings steps wait for the GPU after every scene, so they would distort the frame rates.
+            if (!TransitionBusy() && _steps[_stepIndex].Kind != KindSettings)
             {
                 var scale = (int)Math.Round(MapManager.Camera.Scale);
                 scale = scale < 0 ? 0 : scale > MaxStatScale ? MaxStatScale : scale;
@@ -1271,6 +1280,7 @@ REPLACE
         // 7 free cdram, 8 texture bytes, 9 used memory, 10 frame number, 11 LADX_STRESS start frame.
         public static long VitaMemStat(int what) { return 0; }
         public static void VitaStressMode(bool on) { }
+        public static void VitaGpuSceneTiming(bool on) { }
 END
 
 FILE Game1.cs

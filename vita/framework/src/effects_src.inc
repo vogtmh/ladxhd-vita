@@ -216,25 +216,15 @@ static const std::vector<EffectDef> kEffects = {
      {{"xViewProjection", P::Mat4, 0, {}}, {"offsetX", P::Float, 0, {}}, {"height", P::Float, 0, {}}}},
 
     {"Shader/GBCColorCorrection", nullptr,
+     // Profile 1 / no lightening are constants (the game never sets the parameters); see effects_cg.inc.
      FS_HEAD
-     "uniform float ColorProfile;\n"
-     "uniform float LightenScreen;\n"
      "void main() {\n"
      "  vec4 tex = texture2D(s0, v_tex);\n"
-     "  vec3 rowR, rowG, rowB;\n"
-     "  float lum;\n"
-     "  if (ColorProfile < 1.5) {\n"
-     "    rowR = vec3(0.905, 0.195, -0.10); rowG = vec3(0.10, 0.65, 0.25); rowB = vec3(0.1575, 0.1425, 0.70); lum = 0.91;\n"
-     "  } else if (ColorProfile < 2.5) {\n"
-     "    rowR = vec3(0.76, 0.27, -0.03); rowG = vec3(0.125, 0.6375, 0.2375); rowB = vec3(0.16, 0.18, 0.66); lum = 0.97;\n"
-     "  } else {\n"
-     "    rowR = vec3(0.61, 0.345, 0.045); rowG = vec3(0.155, 0.615, 0.23); rowB = vec3(0.16, 0.1875, 0.6525); lum = 1.0;\n"
-     "  }\n"
-     "  float e = 2.2 - LightenScreen;\n"
-     "  vec3 lin = pow(clamp(tex.rgb, 0.0, 1.0), vec3(e, e, e));\n"
-     "  lin = clamp(lin * lum, 0.0, 1.0);\n"
-     "  vec3 mixed = vec3(dot(rowR, lin), dot(rowG, lin), dot(rowB, lin));\n"
-     "  vec3 outColor = pow(clamp(mixed, 0.0, 1.0), vec3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));\n"
+     "  vec3 lin = exp2(log2(clamp(tex.rgb, 0.0, 1.0)) * 2.2);\n"
+     "  vec3 mixed = vec3(dot(vec3(0.82355, 0.17745, -0.091), lin),\n"
+     "                    dot(vec3(0.091, 0.5915, 0.2275), lin),\n"
+     "                    dot(vec3(0.143325, 0.129675, 0.637), lin));\n"
+     "  vec3 outColor = exp2(log2(clamp(mixed, 0.0, 1.0)) * (1.0 / 2.2));\n"
      "  gl_FragColor = vec4(outColor, tex.a) * v_color;\n"
      "}\n",
      {{"ColorProfile", P::Float, 0, {1}}, {"LightenScreen", P::Float, 0, {}}}},

@@ -234,27 +234,17 @@ static const CgEffect kCgEffects[] = {
      "}\n"},
 
     {"Shader/GBCColorCorrection", nullptr,
+     // The game never sets ColorProfile/LightenScreen, so their defaults (profile 1, no lightening) are
+     // constants here: no per-pixel branches, the 0.91 luminance folded into the matrix.
      CG_FS_HEAD
-     "uniform float ColorProfile;\n"
-     "uniform float LightenScreen;\n"
      CG_MAIN
      "{\n"
      "    float4 tex = tex2D(s0, v_tex);\n"
-     "    float3 rowR, rowG, rowB;\n"
-     "    float lum;\n"
-     "    if (ColorProfile < 1.5f) {\n"
-     "        rowR = float3(0.905f, 0.195f, -0.10f); rowG = float3(0.10f, 0.65f, 0.25f); rowB = float3(0.1575f, 0.1425f, 0.70f); lum = 0.91f;\n"
-     "    } else if (ColorProfile < 2.5f) {\n"
-     "        rowR = float3(0.76f, 0.27f, -0.03f); rowG = float3(0.125f, 0.6375f, 0.2375f); rowB = float3(0.16f, 0.18f, 0.66f); lum = 0.97f;\n"
-     "    } else {\n"
-     "        rowR = float3(0.61f, 0.345f, 0.045f); rowG = float3(0.155f, 0.615f, 0.23f); rowB = float3(0.16f, 0.1875f, 0.6525f); lum = 1.0f;\n"
-     "    }\n"
-     "    float e = 2.2f - LightenScreen;\n"
-     "    float3 lin = pow(clamp(tex.rgb, 0.0f, 1.0f), float3(e, e, e));\n"
-     "    lin = clamp(lin * lum, 0.0f, 1.0f);\n"
-     "    float3 mixed = float3(dot(rowR, lin), dot(rowG, lin), dot(rowB, lin));\n"
-     "    float g = 1.0f / 2.2f;\n"
-     "    float3 outColor = pow(clamp(mixed, 0.0f, 1.0f), float3(g, g, g));\n"
+     "    float3 lin = exp2(log2(clamp(tex.rgb, 0.0f, 1.0f)) * 2.2f);\n"
+     "    float3 mixed = float3(dot(float3(0.82355f, 0.17745f, -0.091f), lin),\n"
+     "                          dot(float3(0.091f, 0.5915f, 0.2275f), lin),\n"
+     "                          dot(float3(0.143325f, 0.129675f, 0.637f), lin));\n"
+     "    float3 outColor = exp2(log2(clamp(mixed, 0.0f, 1.0f)) * (1.0f / 2.2f));\n"
      "    return float4(outColor, tex.a) * v_color;\n"
      "}\n"},
 

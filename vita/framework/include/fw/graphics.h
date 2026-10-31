@@ -416,6 +416,8 @@ int getPerfOverlayMode();
 void setPerfOverlayMode(int value);
 // Stress test: forces hitch/perf log lines on and reports memory counters (see memoryStat in game.cpp).
 void setStressMode(bool on);
+// Vita: waits for the GPU after every scene and logs "gpu scenes:" once a second (slows the game down).
+void setGpuSceneTiming(bool on);
 int64_t memoryStat(int what);
 // Map transitions: frame-time misses during the next `frames` frames don't count against 60 fps.
 void holdPacing(int frames);

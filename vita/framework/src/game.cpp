@@ -81,6 +81,7 @@ bool diagnosticsEnabled() { return overlay::active() || perfRequested || stressM
 }
 long frameCounter = 0;
 void setStressMode(bool on) { stressMode = on; }
+void setGpuSceneTiming(bool on) { gfx::debugMode = on ? 3 : 0; }
 int64_t memoryStat(int what) {
     switch (what) {
     case 0: return (int64_t)GC_get_heap_size();
