@@ -1,0 +1,19 @@
+With dynamic shadows off (sprite shadows), every shadow and the owl's shadow created a new CPosition (with its own
+listener dictionary) every frame only to copy its coordinates: about 7 KB of garbage per frame on the overworld, which
+fills the heap and forces collections during play. The coordinates are now set directly.
+
+FILE InGame/GameObjects/Things/ObjSpriteShadow.cs
+FIND
+            var newPostion = _host.EntityPosition.Position + _offset;
+            _position = new CPosition(newPostion.X, newPostion.Y, 0);
+            EntityPosition.Set(_position.Position);
+REPLACE
+            EntityPosition.Set(_host.EntityPosition.Position + _offset);
+END
+
+FILE InGame/GameObjects/NPCs/ObjOwl.cs
+FIND
+                _spriteShadow.EntityPosition.Set(new CPosition(_owlPosition.Position.X-8, _owlPosition.Position.Y-14, 0));
+REPLACE
+                _spriteShadow.EntityPosition.Set(new Vector3(_owlPosition.Position.X - 8, _owlPosition.Position.Y - 14, 0));
+END

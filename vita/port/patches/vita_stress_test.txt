@@ -1,12 +1,15 @@
 Vita stress test (Cheats > Stress Test, in game only). Plays through the game automatically to find memory
-build-up and crashes: every dungeon in a row (all rooms, every side area, the instrument sequence and the warp
+build-up and crashes: every dungeon in a row (all rooms, 30 s in the room with the most enemies, every side area, the
+instrument sequence and the warp
 back to the overworld), every overworld door, the whole overworld, menus and repeated save loads. Writes
 "stress:" lines to the log (each step, each map load, every collection, slow frames, memory every 10 s and a
 summary). Saving is blocked while it runs; afterwards settings and achievements are restored and the save is
 reloaded. Each dungeon, every 20 overworld doors, the overworld tour and each save load run with another settings
 profile (sprite shadows, classic camera, classic camera per map type, classic sprites/music without lighting,
 colour correction/pixel grid), on top of the player's settings; all but "your settings" also step through the game
-scales 1x to 4x. The summary lists the frame rate per profile and per game scale. Pressing the button again (or
+scales 1x to 4x. The summary lists the frame rate per profile and per game scale. Gameplay steps of at least 10 s that
+produce more than 2 KB of garbage per frame are warnings (such garbage fills the heap and forces collections during play).
+Pressing the button again (or
 opening the menu and pressing it) stops the test.
 
 FILE InGame/GameSystems/CheatSystem.cs
@@ -81,6 +84,10 @@ namespace ProjectZ.InGame.GameSystems
         private const int TourRooms = 0;
         private const int TourAllFields = 1;
         private const int TourAroundLink = 2;
+        // One field (the one with the most enemies), for a long stay: problems that grow with time show up there.
+        private const int TourLinger = 3;
+        // Gameplay steps producing more garbage than this per frame get a warning (normal play: under 1 KB).
+        private const long GarbageWarnBytesPerFrame = 2048;
 
         private const long TicksPerMs = 10000;
         private const long TicksPerSecond = 10000000;
@@ -239,6 +246,17 @@ namespace ProjectZ.InGame.GameSystems
                 AddFinishSteps();
                 return;
             }
+            // Desktop: LADX_STRESS_PLAN=dungeon:<map>:<entry> tours one dungeon slowly (e.g. dungeon:dungeon3.map:d3).
+            var vitaPlan = System.Environment.GetEnvironmentVariable("LADX_STRESS_PLAN");
+            if (vitaPlan != null && vitaPlan.StartsWith("dungeon:"))
+            {
+                var parts = vitaPlan.Split(':');
+                Add(new VitaStressStep { Kind = KindMapChange, Name = "enter " + parts[1], Map = parts[1], Entry = parts[2] });
+                Add(new VitaStressStep { Kind = KindTour, Name = "rooms of " + parts[1], Mode = TourRooms, Frames = 200 });
+                Add(new VitaStressStep { Kind = KindTour, Name = "30 s in the busiest room of " + parts[1], Mode = TourLinger, Frames = 1800 });
+                AddFinishSteps();
+                return;
+            }
             AddDungeon(1, "dungeon1.map", "d1", 0, "dungeon1.map", null, 1048, 53);
             AddDungeon(2, "dungeon2.map", "d2", 1, "dungeon2.map", null, 728, 309);
             AddDungeon(3, "dungeon3.map", "d3", 2, "dungeon3.map", null, 1048, 694);
@@ -278,6 +296,7 @@ namespace ProjectZ.InGame.GameSystems
             AddWait("settle", 60);
             AddMenus("menus in " + label);
             Add(new VitaStressStep { Kind = KindTour, Name = "rooms of " + map, Mode = TourRooms, Frames = 40 });
+            Add(new VitaStressStep { Kind = KindTour, Name = "30 s in the busiest room of " + map, Mode = TourLinger, Frames = 1800 });
             Add(new VitaStressStep { Kind = KindDoors, Name = "side areas of " + map, Mode = 0 });
             if (instrument >= 0)
             {
@@ -538,9 +557,15 @@ namespace ProjectZ.InGame.GameSystems
         private static void EndStep(VitaStressStep step)
         {
             var ticks = _clock.ElapsedTicks - _stepStartTicks;
+            var allocated = Game1.VitaMemStat(5) - _stepAlloc;
             Log("done '" + step.Name + "' in " + Seconds(ticks) + " s, " + _stepFrame + " frames, worst frame " + Ms(_stepWorst) +
-                " ms, slow frames " + _stepSlow + ", allocated " + Mb(Game1.VitaMemStat(5) - _stepAlloc) +
+                " ms, slow frames " + _stepSlow + ", allocated " + Mb(allocated) +
                 " MB, collections " + (Game1.VitaMemStat(3) - _stepGcCount) + " (" + (Game1.VitaMemStat(4) - _stepGcMs) + " ms) | " + MemoryText());
+            // Map loads allocate by design; plain play should produce next to nothing. Short steps are skipped: a one-off
+            // burst (music start, enemies spawning after a warp) is not a problem, garbage that keeps coming is.
+            var gameplay = step.Kind == KindTour || step.Kind == KindWait || step.Kind == KindMenus;
+            if (gameplay && _stepFrame >= 600 && allocated / _stepFrame > GarbageWarnBytesPerFrame)
+                Warn("'" + step.Name + "' produced " + allocated / _stepFrame / 1024 + " KB of garbage per frame");
         }
 
         private static bool TickStep(VitaStressStep step, long now)
@@ -631,7 +656,7 @@ namespace ProjectZ.InGame.GameSystems
                     UpdateStatus();
                 }
                 _phaseFrame++;
-                if (_phaseFrame == step.Frames / 2)
+                if (_phaseFrame == step.Frames / 2 || (step.Mode == TourLinger && _phaseFrame % 120 == 60))
                     PressSword();
                 if (_phaseFrame >= step.Frames)
                 {
@@ -821,6 +846,24 @@ namespace ProjectZ.InGame.GameSystems
                 }
                 for (var i = 0; i < counts.Length; i++)
                     use[i] = counts[i] >= 3;
+            }
+            else if (step.Mode == TourLinger)
+            {
+                var enemies = new int[columns * rows];
+                foreach (var gameObject in map.Objects.GetObjects(left, top, width, height))
+                {
+                    if (gameObject.Components[ProjectZ.InGame.GameObjects.Base.Components.AiComponent.Index] == null)
+                        continue;
+                    var column = ((int)gameObject.EntityPosition.X - left) / Values.FieldWidth;
+                    var row = ((int)gameObject.EntityPosition.Y - top) / Values.FieldHeight;
+                    if (column >= 0 && column < columns && row >= 0 && row < rows)
+                        enemies[row * columns + column]++;
+                }
+                var busiest = 0;
+                for (var i = 1; i < enemies.Length; i++)
+                    if (enemies[i] > enemies[busiest])
+                        busiest = i;
+                use[busiest] = true;
             }
             else if (step.Mode == TourAllFields)
             {

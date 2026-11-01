@@ -1,0 +1,79 @@
+Dodongo snakes (dungeon 3 mini boss, also in later dungeons) created a new eat box every frame. Each CBox registers
+a listener on the snake's position, so the listener list grew by one entry per frame for as long as the snake lived:
+about 20 KB of garbage per frame after a few minutes (the whole list is copied on every add), heap full after
+2-3 minutes in the dungeon and a 0.75 s emergency collection in the middle of play, plus every position change calling
+thousands of stale listeners. Now one box per direction is created once and refreshed from the current position, which
+gives the same box as a new one.
+
+FILE InGame/GameObjects/Base/CObjects/CBox.cs
+FIND
+        private void UpdateBoxZ(CPosition position)
+REPLACE
+        // Recomputes the box from the position without registering another listener.
+        public void VitaRefresh(CPosition position)
+        {
+            if (_followZ)
+                UpdateBoxZ(position);
+            else
+                UpdateBox(position);
+        }
+
+        private void UpdateBoxZ(CPosition position)
+END
+
+FILE InGame/GameObjects/MidBoss/MBossDodongoSnake.cs
+FIND
+        private CBox _eatBox;
+REPLACE
+        private CBox _eatBox;
+        private readonly CBox[] _vitaEatBoxes = new CBox[5];
+END
+
+FILE InGame/GameObjects/MidBoss/MBossDodongoSnake.cs
+FIND
+            _eatBox = _direction switch
+            {
+                0 => _eatBox = new CBox(EntityPosition, -4, -12, 3, 10, 8),
+                1 => _eatBox = new CBox(EntityPosition, -3, -12, 6, 3, 8),
+                2 => _eatBox = new CBox(EntityPosition,  1, -12, 3, 10, 8),
+                3 => _eatBox = new CBox(EntityPosition, -3, -7, 6, 3, 8),
+                _ => _eatBox = new CBox(EntityPosition, -4, -12, 3, 10, 8)
+            };
+REPLACE
+            var index = _direction >= 0 && _direction <= 3 ? _direction : 4;
+            var box = _vitaEatBoxes[index];
+            if (box == null)
+            {
+                box = index switch
+                {
+                    0 => new CBox(EntityPosition, -4, -12, 3, 10, 8),
+                    1 => new CBox(EntityPosition, -3, -12, 6, 3, 8),
+                    2 => new CBox(EntityPosition,  1, -12, 3, 10, 8),
+                    3 => new CBox(EntityPosition, -3, -7, 6, 3, 8),
+                    _ => new CBox(EntityPosition, -4, -12, 3, 10, 8)
+                };
+                _vitaEatBoxes[index] = box;
+            }
+            else
+                box.VitaRefresh(EntityPosition);
+            _eatBox = box;
+END
+
+FILE InGame/GameObjects/MidBoss/MBossDodongoSnake.cs
+FIND
+            List<GameObject> dodongoSnakes = new List<GameObject>();
+            Map.Objects.GetComponentList(dodongoSnakes,
+REPLACE
+            // Reused: this runs every frame.
+            var dodongoSnakes = _vitaSnakeList;
+            dodongoSnakes.Clear();
+            Map.Objects.GetComponentList(dodongoSnakes,
+END
+
+FILE InGame/GameObjects/MidBoss/MBossDodongoSnake.cs
+FIND
+        private readonly CBox[] _vitaEatBoxes = new CBox[5];
+REPLACE
+        private readonly CBox[] _vitaEatBoxes = new CBox[5];
+        private readonly List<GameObject> _vitaSnakeList = new List<GameObject>();
+END
